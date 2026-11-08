@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -209,14 +210,17 @@ class _TileLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
-      child: SizedBox(
+      child: Container(
         width: 40,
         height: 40,
+        color: Colors.white.withValues(alpha: 0.06),
         child: channel.hasLogo
             ? CachedNetworkImage(
                 imageUrl: channel.logo!,
                 fit: BoxFit.cover,
-                memCacheWidth: 80,
+                memCacheWidth: kIsWeb ? null : 80,
+                useOldImageOnUrlChange: true,
+                fadeInDuration: const Duration(milliseconds: 120),
                 placeholder: (context, url) => const ShimmerBox(),
                 errorWidget: (context, url, error) => _fallback(channel),
               )

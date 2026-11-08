@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -144,19 +145,23 @@ class _Logo extends StatelessWidget {
     return Center(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: CachedNetworkImage(
-          imageUrl: channel.logo!,
-          fit: BoxFit.contain,
-          alignment: Alignment.center,
-          memCacheWidth: 220,
-        fadeInDuration: const Duration(milliseconds: 180),
-        placeholder: (context, url) => const SizedBox.expand(
-          child: ShimmerBox(borderRadius: BorderRadius.all(Radius.circular(6))),
+        child: Container(
+          color: Colors.white.withValues(alpha: 0.06),
+          child: CachedNetworkImage(
+            imageUrl: channel.logo!,
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            memCacheWidth: kIsWeb ? null : 220,
+            useOldImageOnUrlChange: true,
+            fadeInDuration: const Duration(milliseconds: 180),
+            placeholder: (context, url) => const SizedBox.expand(
+              child: ShimmerBox(borderRadius: BorderRadius.all(Radius.circular(6))),
+            ),
+            errorWidget: (context, url, error) => _fallback(),
+          ),
         ),
-        errorWidget: (context, url, error) => _fallback(),
       ),
-    ),
-  );
+    );
   }
 
   Widget _fallback() {
