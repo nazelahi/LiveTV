@@ -49,25 +49,37 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
     lockPortrait();
 
-    FlutterVolumeController.updateShowSystemUI(false);
-    FlutterVolumeController.getVolume().then((value) {
-      if (mounted && value != null) setState(() => _deviceVolume = value);
-    });
-    _volumeSubscription = FlutterVolumeController.addListener((value) {
-      if (mounted) setState(() => _deviceVolume = value);
-    });
+    try {
+      FlutterVolumeController.updateShowSystemUI(false);
+    } catch (_) {}
+    try {
+      FlutterVolumeController.getVolume().then((value) {
+        if (mounted && value != null) setState(() => _deviceVolume = value);
+      }).catchError((_) {});
+    } catch (_) {}
+    try {
+      _volumeSubscription = FlutterVolumeController.addListener((value) {
+        if (mounted) setState(() => _deviceVolume = value);
+      });
+    } catch (_) {}
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final index = widget.initialIndex.clamp(0, widget.queue.length - 1);
-      ref.read(playerProvider.notifier).play(
-            widget.queue[index],
-            widget.queue,
-            index,
-          );
+      try {
+        ref.read(playerProvider.notifier).play(
+              widget.queue[index],
+              widget.queue,
+              index,
+            );
+      } catch (e) {
+        debugPrint('play failed: $e');
+      }
       // Keep the in-app player at full volume; the on-screen slider drives
       // the device (hardware) volume instead.
-      ref.read(playerProvider.notifier).setVolume(100);
+      try {
+        ref.read(playerProvider.notifier).setVolume(100);
+      } catch (_) {}
       _refreshRelated();
     });
   }

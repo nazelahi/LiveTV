@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_theme.dart';
 import '../core/channel_filter.dart';
 import '../core/constants.dart';
+import '../core/open_url.dart';
 import '../data/models/channel.dart';
 
 import '../providers/channel_probe_provider.dart';
@@ -103,6 +104,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (queue.isEmpty) return;
     if (_selectionMode) {
       _toggleSelection(queue[index]);
+      return;
+    }
+    // On mobile web, in-app playback is unreliable (blank player), so open
+    // the stream in a new tab where the browser's native player handles it.
+    if (kIsWeb && MediaQuery.sizeOf(context).width < AppConfig.desktopBreakpoint) {
+      openUrlInNewTab(queue[index].url);
+      _toast('Opening stream in a new tab…');
       return;
     }
     Navigator.of(context).push(
