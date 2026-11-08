@@ -30,7 +30,9 @@ class EpgRepository {
     final response = await _client
         .get(
           Uri.parse(AppConfig.epgUrl),
-          headers: const {'Cache-Control': 'no-cache'},
+          headers: kIsWeb
+              ? const <String, String>{}
+              : const <String, String>{'Cache-Control': 'no-cache'},
         )
         .timeout(const Duration(minutes: 5));
 

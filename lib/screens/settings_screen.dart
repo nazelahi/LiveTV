@@ -9,9 +9,10 @@ import '../core/constants.dart';
 import '../core/utils.dart';
 import '../providers/playlist_providers.dart';
 import '../providers/epg_providers.dart';
+import '../providers/update_provider.dart';
 import '../screens/epg_screen.dart';
 import '../widgets/glass.dart';
-import 'dart:convert';
+import 'dart:io';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -25,7 +26,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   String? _latestVersion;
   String? _latestReleaseUrl;
-  String? _updateError;
+  static const MethodChannel _updateChannel = MethodChannel('app_update');
+  bool _downloadingUpdate = false;
+  double _downloadProgress = 0;
   String? _latestDownloadUrl;
   bool _checkingUpdate = false;
 
@@ -327,30 +330,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : (_latestVersion != null &&
-                              _latestVersion != AppConfig.appVersion)
-                          ? TextButton(
-                              onPressed: () {
-                                final link = _latestDownloadUrl ??
-                                    _latestReleaseUrl;
-                                if (link == null) return;
-                                Clipboard.setData(ClipboardData(text: link));
-                                ScaffoldMessenger.of(context)
-                                  ..hideCurrentSnackBar()
-                                  ..showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Download link copied to clipboard'),
-                                    ),
-                                  );
-                              },
-                              child: const Text('Copy link'),
+                      : _downloadingUpdate
+                          ? SizedBox(
+                              width: 60,
+                              child: LinearProgressIndicator(
+                                value: _downloadProgress > 0 ? _downloadProgress : null,
+                              ),
                             )
-                          : IconButton(
+                          : (_latestVersion != null &&
+                                  _latestVersion != AppConfig.appVersion)
+                              ? TextButton(
+                                  onPressed: _downloadAndInstallUpdate,
+                                  child: const Text('Update'),
+                                )
+                              : IconButton(
                               tooltip: 'Check for updates',
                               icon: const Icon(Icons.refresh_rounded),
                               onPressed: _checkForUpdates,
                             ),
-                  onTap: _checkingUpdate ? null : _checkForUpdates,
+                  onTap: (_checkingUpdate || _downloadingUpdate) ? null : _checkForUpdates,
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -384,6 +382,74 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   ), // Column
 ), // SafeArea
 ); // Scaffold
+  }
+
+
+  Future<void> _downloadAndInstallUpdate() async {
+    final url = _latestDownloadUrl ?? _latestReleaseUrl;
+    if (url == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('No download link available.')));
+      return;
+    }
+
+    // Ensure install permission on Android 8+.
+    try {
+      final canInstall = await _updateChannel.invokeMethod<bool>('canInstallPackages') ?? true;
+      if (!canInstall) {
+        await _updateChannel.invokeMethod('openInstallPermissionSettings');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text('Allow installs from this app, then retry.')),
+          );
+        return;
+      }
+    } catch (_) {
+      // Ignore; proceed to download.
+    }
+
+    setState(() {
+      _downloadingUpdate = true;
+      _downloadProgress = 0;
+    });
+
+    try {
+      final client = http.Client();
+      final request = http.Request('GET', Uri.parse(url));
+      request.headers['User-Agent'] = 'LiveTV-App';
+      final response = await client.send(request);
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+
+      final total = response.contentLength ?? 0;
+      final file = File('${Directory.systemTemp.path}/LiveTV-update.apk');
+      final sink = file.openWrite();
+      int received = 0;
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (total > 0 && mounted) {
+          setState(() => _downloadProgress = received / total);
+        }
+      }
+      await sink.close();
+      client.close();
+
+      if (!mounted) return;
+      await _updateChannel.invokeMethod('installApk', {'path': file.path});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Update failed: $e')));
+    } finally {
+      if (mounted) setState(() => _downloadingUpdate = false);
+    }
   }
 
   Future<void> _showAbout() async {
@@ -485,130 +551,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _checkForUpdates() async {
     setState(() => _checkingUpdate = true);
-    _latestReleaseUrl = null;
-    _latestDownloadUrl = null;
-    _updateError = null;
-    String? latest;
-    try {
-      // 1. GitHub releases (preferred): tag_name like "v1.0.1".
-      if (AppConfig.appReleaseUrl.isNotEmpty) {
-        final client = http.Client();
-        final response = await client
-            .get(
-              Uri.parse(AppConfig.appReleaseUrl),
-              headers: const {'User-Agent': 'LiveTV-App', 'Accept': 'application/json'},
-            )
-            .timeout(const Duration(seconds: 30));
-        client.close();
-        if (response.statusCode == 200) {
-          try {
-            final decoded = jsonDecode(response.body);
-            if (decoded is Map<String, dynamic>) {
-              final tag = decoded['tag_name']?.toString();
-              if (tag != null && tag.isNotEmpty) {
-                latest = tag.replaceFirst(RegExp(r'^[vV]'), '');
-                _latestReleaseUrl = decoded['html_url']?.toString();
-                // Prefer the Android APK asset for the download link.
-                final assets = decoded['assets'];
-                if (assets is List) {
-                  for (final a in assets) {
-                    if (a is Map<String, dynamic>) {
-                      final name = a['name']?.toString() ?? '';
-                      if (name.endsWith('.apk')) {
-                        _latestDownloadUrl = a['browser_download_url']?.toString();
-                        break;
-                      }
-                    }
-                  }
-                  _latestDownloadUrl ??= (assets.isNotEmpty && assets.first is Map)
-                      ? (assets.first as Map)['browser_download_url']?.toString()
-                      : null;
-                }
-              }
-            }
-          } catch (_) {}
-        }
-      }
-
-      // 2. Dedicated version file (plain text or JSON).
-      if (latest == null && AppConfig.appUpdateUrl.isNotEmpty) {
-        final client = http.Client();
-        final response = await client
-            .get(
-              Uri.parse(AppConfig.appUpdateUrl),
-              headers: const {'User-Agent': 'LiveTV-App'},
-            )
-            .timeout(const Duration(seconds: 30));
-        client.close();
-        if (response.statusCode == 200) {
-          final body = response.body.trim();
-          if (!body.startsWith('{') && !body.startsWith('[')) {
-            if (RegExp(r'^\d+\.\d').hasMatch(body)) {
-              latest = body.split(RegExp(r'\s')).first;
-            }
-          } else {
-            try {
-              final decoded = jsonDecode(body);
-              if (decoded is Map<String, dynamic>) {
-                final v = decoded['appVersion'] ??
-                    decoded['latestVersion'] ??
-                    decoded['version'];
-                if (v != null) latest = v.toString();
-              }
-            } catch (_) {}
-          }
-        }
-      }
-    } catch (e) {
-      latest = null;
-      _updateError = e.toString();
-      debugPrint('Update check failed: $e');
-    } finally {
-      if (mounted) setState(() => _checkingUpdate = false);
-    }
-
-    if (mounted) {
-      setState(() {
-        _latestVersion = latest;
-        // keep captured urls only when an update is available
-        if (latest == null || latest == AppConfig.appVersion) {
-          _latestReleaseUrl = null;
-          _latestDownloadUrl = null;
-        }
-      });
-    }
-
+    ref.invalidate(latestReleaseProvider);
+    final info = await ref.read(latestReleaseProvider.future).catchError((_) => null);
     if (!mounted) return;
-    if (latest != null && latest.isNotEmpty) {
-      debugPrint('Update check: latest=$latest, current=${AppConfig.appVersion}');
-      if (latest != AppConfig.appVersion) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text('Update available: $latest')),
-          );
-        return;
+    setState(() {
+      _checkingUpdate = false;
+      _latestVersion = info?.version;
+      _latestReleaseUrl = info?.releaseUrl;
+      _latestDownloadUrl = info?.downloadUrl;
+      if (_latestVersion == AppConfig.appVersion) {
+        _latestReleaseUrl = null;
+        _latestDownloadUrl = null;
       }
+    });
+
+    if (info == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
-            content: Text('You\'re on the latest version (${AppConfig.appVersion})'),
-          ),
+          const SnackBar(content: Text('Update check failed: no release info')),
         );
       return;
     }
-
-    debugPrint('Update check: no version info (error=$_updateError)');
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('Update check failed: ${_updateError ?? 'unknown'}'),
-        ),
-      );
+    if (info.isNewer) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Update available: ${info.version}')),
+        );
+    } else {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('You\'re on the latest version (${AppConfig.appVersion})')),
+        );
+    }
   }
 }
+
+
 
 
 

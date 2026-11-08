@@ -14,6 +14,7 @@ import '../widgets/channel_grid.dart';
 import '../widgets/channel_list.dart';
 import '../widgets/featured_rail.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/update_notice.dart';
 import '../widgets/states.dart';
 import 'featured_screen.dart';
 import 'watch_screen.dart';
@@ -265,6 +266,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                         ),
                       ),
+                    SliverToBoxAdapter(child: UpdateNotice()),
                     if (_selectionMode)
                       SliverToBoxAdapter(
                         child: _SelectionBar(
