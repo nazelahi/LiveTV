@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
@@ -21,6 +22,12 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _refreshing = false;
+
+  String? _latestVersion;
+  String? _latestReleaseUrl;
+  String? _updateError;
+  String? _latestDownloadUrl;
+  bool _checkingUpdate = false;
 
   Future<void> _refresh() async {
     if (_refreshing) return;
@@ -304,9 +311,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   leading: const Icon(Icons.system_update_rounded),
-                  title: const Text('Check for updates'),
-                  subtitle: const Text('Check for a newer app version'),
-                  onTap: _checkForUpdates,
+                  title: const Text('App version'),
+                  subtitle: Text(
+                    _checkingUpdate
+                        ? 'Checking for updates…'
+                        : _latestVersion == null
+                            ? '${AppConfig.appVersion}  ·  tap to check for updates'
+                            : _latestVersion == AppConfig.appVersion
+                                ? '${AppConfig.appVersion}  ·  up to date'
+                                : '${AppConfig.appVersion}  →  $_latestVersion available',
+                  ),
+                  trailing: _checkingUpdate
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : (_latestVersion != null &&
+                              _latestVersion != AppConfig.appVersion)
+                          ? TextButton(
+                              onPressed: () {
+                                final link = _latestDownloadUrl ??
+                                    _latestReleaseUrl;
+                                if (link == null) return;
+                                Clipboard.setData(ClipboardData(text: link));
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Download link copied to clipboard'),
+                                    ),
+                                  );
+                              },
+                              child: const Text('Copy link'),
+                            )
+                          : IconButton(
+                              tooltip: 'Check for updates',
+                              icon: const Icon(Icons.refresh_rounded),
+                              onPressed: _checkForUpdates,
+                            ),
+                  onTap: _checkingUpdate ? null : _checkForUpdates,
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -440,50 +484,103 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _checkForUpdates() async {
+    setState(() => _checkingUpdate = true);
+    _latestReleaseUrl = null;
+    _latestDownloadUrl = null;
+    _updateError = null;
     String? latest;
     try {
-      // Only the dedicated app-update endpoint is used here. The playlist
-      // config endpoint carries a *playlist* version, which is unrelated to
-      // the app version and must not be reported as an app update.
-      final urls = <String>[
-        if (AppConfig.appUpdateUrl.isNotEmpty) AppConfig.appUpdateUrl,
-      ];
-      for (final url in urls) {
+      // 1. GitHub releases (preferred): tag_name like "v1.0.1".
+      if (AppConfig.appReleaseUrl.isNotEmpty) {
         final client = http.Client();
         final response = await client
-            .get(Uri.parse(url))
-            .timeout(const Duration(seconds: 10));
+            .get(
+              Uri.parse(AppConfig.appReleaseUrl),
+              headers: const {'User-Agent': 'LiveTV-App', 'Accept': 'application/json'},
+            )
+            .timeout(const Duration(seconds: 30));
         client.close();
-        if (response.statusCode != 200) continue;
-        final body = response.body.trim();
-        // Plain-text version, e.g. "1.0.1".
-        if (!body.startsWith('{') && !body.startsWith('[')) {
-          if (RegExp(r'^\d+\.\d').hasMatch(body)) {
-            latest = body.split(RegExp(r'\s')).first;
-            break;
-          }
-        }
-        try {
-          final decoded = jsonDecode(body);
-          if (decoded is Map<String, dynamic>) {
-            final v = decoded['appVersion'] ??
-                decoded['latestVersion'] ??
-                decoded['version'];
-            if (v != null) {
-              latest = v.toString();
-              break;
+        if (response.statusCode == 200) {
+          try {
+            final decoded = jsonDecode(response.body);
+            if (decoded is Map<String, dynamic>) {
+              final tag = decoded['tag_name']?.toString();
+              if (tag != null && tag.isNotEmpty) {
+                latest = tag.replaceFirst(RegExp(r'^[vV]'), '');
+                _latestReleaseUrl = decoded['html_url']?.toString();
+                // Prefer the Android APK asset for the download link.
+                final assets = decoded['assets'];
+                if (assets is List) {
+                  for (final a in assets) {
+                    if (a is Map<String, dynamic>) {
+                      final name = a['name']?.toString() ?? '';
+                      if (name.endsWith('.apk')) {
+                        _latestDownloadUrl = a['browser_download_url']?.toString();
+                        break;
+                      }
+                    }
+                  }
+                  _latestDownloadUrl ??= (assets.isNotEmpty && assets.first is Map)
+                      ? (assets.first as Map)['browser_download_url']?.toString()
+                      : null;
+                }
+              }
             }
-          }
-        } catch (_) {
-          // Not JSON; ignore this source.
+          } catch (_) {}
         }
       }
-    } catch (_) {
+
+      // 2. Dedicated version file (plain text or JSON).
+      if (latest == null && AppConfig.appUpdateUrl.isNotEmpty) {
+        final client = http.Client();
+        final response = await client
+            .get(
+              Uri.parse(AppConfig.appUpdateUrl),
+              headers: const {'User-Agent': 'LiveTV-App'},
+            )
+            .timeout(const Duration(seconds: 30));
+        client.close();
+        if (response.statusCode == 200) {
+          final body = response.body.trim();
+          if (!body.startsWith('{') && !body.startsWith('[')) {
+            if (RegExp(r'^\d+\.\d').hasMatch(body)) {
+              latest = body.split(RegExp(r'\s')).first;
+            }
+          } else {
+            try {
+              final decoded = jsonDecode(body);
+              if (decoded is Map<String, dynamic>) {
+                final v = decoded['appVersion'] ??
+                    decoded['latestVersion'] ??
+                    decoded['version'];
+                if (v != null) latest = v.toString();
+              }
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (e) {
       latest = null;
+      _updateError = e.toString();
+      debugPrint('Update check failed: $e');
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
+    }
+
+    if (mounted) {
+      setState(() {
+        _latestVersion = latest;
+        // keep captured urls only when an update is available
+        if (latest == null || latest == AppConfig.appVersion) {
+          _latestReleaseUrl = null;
+          _latestDownloadUrl = null;
+        }
+      });
     }
 
     if (!mounted) return;
     if (latest != null && latest.isNotEmpty) {
+      debugPrint('Update check: latest=$latest, current=${AppConfig.appVersion}');
       if (latest != AppConfig.appVersion) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
@@ -502,14 +599,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
+    debugPrint('Update check: no version info (error=$_updateError)');
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text(
-            'App updates are not configured yet. '
-            'Set appUpdateUrl in constants to enable this check.',
-          ),
+        SnackBar(
+          content: Text('Update check failed: ${_updateError ?? 'unknown'}'),
         ),
       );
   }

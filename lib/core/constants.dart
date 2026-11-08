@@ -18,7 +18,12 @@ class AppConfig {
   /// a plain-text version string (e.g. "1.0.1") or a JSON object with an
   /// "appVersion"/"latestVersion"/"version" field. Leave empty to disable the
   /// remote check and rely on the source page instead.
-  static const String appUpdateUrl = '';
+  static const String appUpdateUrl =
+      'https://raw.githubusercontent.com/nazelahi/LiveTV/main/version.txt';
+
+  /// GitHub releases API endpoint used to check for a newer app release.
+  static const String appReleaseUrl =
+      'https://api.github.com/repos/nazelahi/LiveTV/releases/latest';
 
   static const String epgUrl =
       'https://raw.githubusercontent.com/saeidrahmanbd/BDIX-IPTV/main/epg/epg.xml';
