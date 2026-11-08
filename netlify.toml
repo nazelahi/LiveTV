@@ -1,0 +1,10 @@
+[build]
+  command = "flutter build web --release"
+  publish = "build/web"
+
+[build.environment]
+  FLUTTER_VERSION = "3.47.6"
+
+# No catch-all SPA redirect: Flutter web defaults to hash-based routing, so
+# direct file requests (flutter_bootstrap.js, main.dart.js, assets) must be
+# served as static files. A `/* -> /index.html` rule would mask them.

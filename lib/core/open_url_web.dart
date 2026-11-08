@@ -1,0 +1,5 @@
+import 'package:web/web.dart' as web;
+
+Future<void> openUrlInNewTab(String url) async {
+  web.window.open(url, '_blank');
+}
