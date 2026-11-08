@@ -49,3 +49,6 @@ app.*.map.json
 
 # Superpowers internal notes
 .superpowers/
+
+# Release artifacts
+release_artifacts/
