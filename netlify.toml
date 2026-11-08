@@ -5,6 +5,10 @@
 [build.environment]
   FLUTTER_VERSION = "3.47.6"
 
+# Install Flutter on Netlify's build image via the official plugin.
+[[plugins]]
+  package = "netlify-plugin-flutter"
+
 # No catch-all SPA redirect: Flutter web defaults to hash-based routing, so
 # direct file requests (flutter_bootstrap.js, main.dart.js, assets) must be
 # served as static files. A `/* -> /index.html` rule would mask them.
