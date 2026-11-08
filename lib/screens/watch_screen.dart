@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
@@ -318,10 +319,11 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                 width: 40,
                                 height: 28,
                                 child: session.channel.hasLogo
-                                    ? Image.network(
-                                        session.channel.logo!,
+                                    ? CachedNetworkImage(
+                                        imageUrl: session.channel.logo!,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) =>
+                                        memCacheWidth: 80,
+                                        errorWidget: (_, _, _) =>
                                             _channelFallback(session.channel),
                                       )
                                     : _channelFallback(session.channel),
@@ -571,10 +573,11 @@ class _RelatedTile extends StatelessWidget {
                     width: 44,
                     height: 28,
                     child: channel.hasLogo
-                        ? Image.network(
-                            channel.logo!,
+                        ? CachedNetworkImage(
+                            imageUrl: channel.logo!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => _fallback(channel),
+                            memCacheWidth: 88,
+                            errorWidget: (_, _, _) => _fallback(channel),
                           )
                         : _fallback(channel),
                   ),

@@ -91,10 +91,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       _status.value = 'Ready';
       await _setProgress(1.0, duration: const Duration(milliseconds: 300));
 
-      // Keep the splash visible briefly so it never flashes on fast devices.
+      // Keep the splash visible briefly so it never flashes on fast devices,
+      // but skip the wait when the playlist came from cache (instant load).
       final elapsed = DateTime.now().difference(started);
-      const minDisplay = Duration(milliseconds: 900);
-      if (elapsed < minDisplay) {
+      final cached = result?.fromCache ?? false;
+      const minDisplay = Duration(milliseconds: 400);
+      if (!cached && elapsed < minDisplay) {
         await Future.delayed(minDisplay - elapsed);
       }
 

@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
+import '../core/channel_filter.dart';
 import '../core/constants.dart';
 import '../data/models/channel.dart';
-import '../data/models/playlist_state.dart';
+
 import '../providers/channel_probe_provider.dart';
 import '../providers/playlist_providers.dart';
 import '../widgets/channel_grid.dart';
@@ -38,6 +39,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _selectionMode = false;
   final Set<String> _selectedIds = <String>{};
   List<Channel> _visibleChannels = const <Channel>[];
+  List<Channel>? _cachedFiltered;
+  int _filterSignature = 0;
 
   @override
   void initState() {
@@ -95,40 +98,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  List<Channel> _filter(
-    PlaylistState state,
-    bool showAdult,
-  ) {
-    final query = _query.trim().toLowerCase();
-    final tokens = query.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
-    final group = _effectiveGroup(state, showAdult);
-
-    final channels = state.channels;
-
-    return channels
-        .where((channel) {
-          if (!showAdult && channel.group == AppConfig.adultGroup) return false;
-          if (group != 'All' && channel.group != group) return false;
-          if (tokens.isNotEmpty &&
-              !tokens.every((token) => channel.searchHaystack.contains(token))) {
-            return false;
-          }
-          return true;
-        })
-        .toList(growable: false);
-  }
-
-  String _effectiveGroup(PlaylistState state, bool showAdult) {
-    if (_group == 'All') return 'All';
-    if (!showAdult && _group == AppConfig.adultGroup) return 'All';
-    return _group;
-  }
-
-  List<String> _visibleGroups(PlaylistState state, bool showAdult) {
-    return state.groups
-        .where((group) => showAdult || group != AppConfig.adultGroup)
-        .toList(growable: false);
-  }
 
   void _openChannel(List<Channel> queue, int index) {
     if (queue.isEmpty) return;
@@ -179,10 +148,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _addSelectedToFavorites() {
     if (_selectedIds.isEmpty) return;
-    ref.read(favoritesProvider.notifier).addAll(_selectedIds);
-    final count = _selectedIds.length;
+    final ids = _selectedIds.toList(growable: false);
+    ref.read(favoritesProvider.notifier).addAll(ids);
+    final count = ids.length;
     _clearSelection();
-    _toast(count == 1 ? 'Added to favourites' : 'Added $count channels to favourites');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            count == 1 ? 'Added to favourites' : 'Added $count channels to favourites',
+          ),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () =>
+                ref.read(favoritesProvider.notifier).removeAll(ids),
+          ),
+        ),
+      );
   }
 
   @override
@@ -239,17 +223,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                     ),
-                    if (state != null) ...[
-                      const SliverToBoxAdapter(child: SizedBox(height: 6)),
-                      SliverToBoxAdapter(
-                        child: _CategoryBar(
-                          groups: _visibleGroups(state, settings.showAdult),
-                          selected: _effectiveGroup(state, settings.showAdult),
-                          onSelected: (group) => setState(() => _group = group),
-                        ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 4)),
-                    ],
                     if (state != null &&
                         _query.trim().isEmpty &&
                         !_selectionMode &&
@@ -258,14 +231,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 Orientation.portrait ||
                             MediaQuery.of(context).size.width >= 600))
                       SliverToBoxAdapter(
-                        child: FeaturedRail(
-                          onSeeAll: (kind) => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => FeaturedScreen(initialKind: kind),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: FeaturedRail(
+                            onSeeAll: (kind) => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => FeaturedScreen(initialKind: kind),
+                              ),
                             ),
                           ),
                         ),
                       ),
+                    if (state != null) ...[
+                      const SliverToBoxAdapter(child: SizedBox(height: 6)),
+                      SliverToBoxAdapter(
+                        child: _CategoryBar(
+                          groups: ChannelFilter.visibleGroups(
+                            state.groups,
+                            settings.showAdult,
+                          ),
+                          selected: ChannelFilter.effectiveGroup(
+                            _group,
+                            settings.showAdult,
+                          ),
+                          onSelected: (group) => setState(() => _group = group),
+                        ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 4)),
+                    ],
                     SliverToBoxAdapter(child: UpdateNotice()),
                     if (_selectionMode)
                       SliverToBoxAdapter(
@@ -293,7 +286,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         _lastProbedChannels = data.channels;
                         unawaited(ref.read(channelProbeControllerProvider).run(data.channels));
                       }
-                      final channels = _filter(data, settings.showAdult);
+                      final signature = Object.hash(
+                        _query,
+                        _group,
+                        settings.showAdult,
+                        identityHashCode(data.channels),
+                      );
+                      if (_cachedFiltered == null ||
+                          _filterSignature != signature) {
+                        _filterSignature = signature;
+                        _cachedFiltered = ChannelFilter.filter(
+                          data.channels,
+                          query: _query,
+                          group: _group,
+                          showAdult: settings.showAdult,
+                        );
+                      }
+                      final channels = _cachedFiltered!;
                       _visibleChannels = channels;
                       if (settings.listView) {
                         return ChannelList(

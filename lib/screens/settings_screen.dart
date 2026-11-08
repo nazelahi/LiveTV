@@ -319,12 +319,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _checkingUpdate
                         ? 'Checking for updates…'
                         : _latestVersion == null
-                            ? '${AppConfig.appVersion}  ·  tap to check for updates'
+                            ? ((kIsWeb || !Platform.isAndroid) ? AppConfig.appVersion : '${AppConfig.appVersion}  ·  tap to check for updates')
                             : _latestVersion == AppConfig.appVersion
                                 ? '${AppConfig.appVersion}  ·  up to date'
                                 : '${AppConfig.appVersion}  →  $_latestVersion available',
                   ),
-                  trailing: _checkingUpdate
+                  trailing: (kIsWeb || !Platform.isAndroid) ? null : _checkingUpdate
                       ? const SizedBox(
                           width: 18,
                           height: 18,
@@ -348,7 +348,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               icon: const Icon(Icons.refresh_rounded),
                               onPressed: _checkForUpdates,
                             ),
-                  onTap: (_checkingUpdate || _downloadingUpdate) ? null : _checkForUpdates,
+                  onTap: (kIsWeb || !Platform.isAndroid || _checkingUpdate || _downloadingUpdate)
+                       ? null
+                       : _checkForUpdates,
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(

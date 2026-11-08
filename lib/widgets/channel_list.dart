@@ -104,11 +104,15 @@ class _ChannelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+    return Semantics(
+      label: '${channel.name}, ${channel.group}',
+      button: true,
+      selected: selected,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
         child: Container(
@@ -191,6 +195,7 @@ class _ChannelTile extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

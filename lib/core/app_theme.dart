@@ -13,7 +13,7 @@ class AppTheme {
 
   static const Color textPrimary = Color(0xFF93A1A1);
   static const Color textSecondary = Color(0xFF839496);
-  static const Color textMuted = Color(0xFF657B83);
+  static const Color textMuted = Color(0xFF7A8F94);
 
   static const LinearGradient backgroundGradient = LinearGradient(
     begin: Alignment.topLeft,

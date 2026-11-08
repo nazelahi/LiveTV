@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -284,10 +285,11 @@ class _GuideTile extends StatelessWidget {
                 width: 44,
                 height: 30,
                 child: logo != null && logo!.isNotEmpty
-                    ? Image.network(
-                        logo!,
+                    ? CachedNetworkImage(
+                        imageUrl: logo!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => _fallback(name),
+                        memCacheWidth: 88,
+                        errorWidget: (_, _, _) => _fallback(name),
                       )
                     : _fallback(name),
               ),

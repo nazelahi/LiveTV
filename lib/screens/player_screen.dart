@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -88,7 +90,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           Video(
             controller: session.controller,
             controls: NoVideoControls,
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
             wakelock: false,
           ),
           GestureDetector(
@@ -109,7 +111,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ),
           AnimatedOpacity(
             opacity: session.controlsVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 200),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
             child: IgnorePointer(
               ignoring: !session.controlsVisible,
               child: Container(
@@ -119,7 +123,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           ),
           AnimatedOpacity(
             opacity: session.controlsVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 200),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
             child: IgnorePointer(
               ignoring: !session.controlsVisible,
               child: SafeArea(
@@ -282,10 +288,11 @@ class _TopBar extends StatelessWidget {
               width: 32,
               height: 22,
               child: channel.hasLogo
-                  ? Image.network(
-                      channel.logo!,
+                  ? CachedNetworkImage(
+                      imageUrl: channel.logo!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _playerFallback(channel),
+                      memCacheWidth: 64,
+                      errorWidget: (_, _, _) => _playerFallback(channel),
                     )
                   : _playerFallback(channel),
             ),
@@ -339,6 +346,20 @@ class _TopBar extends StatelessWidget {
               isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
               color: isFavorite ? AppTheme.accent : AppTheme.textPrimary,
             ),
+          ),
+          IconButton(
+            tooltip: 'Copy stream URL',
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: channel.url));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(content: Text('Stream URL copied')),
+                  );
+              }
+            },
+            icon: const Icon(Icons.link_rounded),
           ),
           PopupMenuButton<String>(
             tooltip: 'More',

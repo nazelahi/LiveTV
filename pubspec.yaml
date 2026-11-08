@@ -1,5 +1,7 @@
 name: livetv
-description: "A new Flutter project."
+description: "A Flutter IPTV player that loads and plays live TV channels from a remote playlist."
+homepage: https://github.com/nazelahi/LiveTV
+repository: https://github.com/nazelahi/LiveTV
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

@@ -135,6 +135,21 @@ class FavoritesNotifier extends StateNotifier<Set<String>> {
     }
     if (changed) state = next;
   }
+
+  /// Removes multiple channels from favourites at once, used by the undo
+  /// action after a bulk add.
+  void removeAll(Iterable<String> channelIds) {
+    final next = {...state};
+    var changed = false;
+    for (final channelId in channelIds) {
+      if (channelId.isEmpty) continue;
+      if (next.remove(channelId)) {
+        HiveStore.favorites.delete(channelId).ignore();
+        changed = true;
+      }
+    }
+    if (changed) state = next;
+  }
 }
 
 final favoritesProvider =

@@ -14,7 +14,7 @@ class FeaturedCard extends StatelessWidget {
   });
 
   static const double width = 160;
-  static const double height = 80;
+  static const double height = 96;
 
   final FeaturedProgramme item;
   final DateTime now;
@@ -133,6 +133,7 @@ class _ChannelLogo extends StatelessWidget {
         width: 14,
         height: 14,
         fit: BoxFit.contain,
+        memCacheWidth: 28,
         placeholder: (_, _) => const SizedBox.shrink(),
         errorWidget: (_, _, _) => const SizedBox.shrink(),
       ),

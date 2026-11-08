@@ -3,15 +3,17 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:media_kit_video/media_kit_video.dart' as mkv;
 
 import '../core/app_theme.dart';
+import '../core/channel_filter.dart';
 import '../core/constants.dart';
 import '../core/open_url.dart';
 import '../data/models/channel.dart';
-import '../data/models/playlist_state.dart';
+
 import '../providers/channel_probe_provider.dart';
 import '../providers/epg_providers.dart';
 import '../providers/player_provider.dart';
@@ -39,6 +41,8 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
   String _group = 'All';
   bool _refreshing = false;
   List<Channel>? _lastProbedChannels;
+  List<Channel>? _cachedFiltered;
+  int _filterSignature = 0;
 
   @override
   void initState() {
@@ -92,38 +96,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
     _searchDebounce = Timer(const Duration(milliseconds: 150), () {
       if (mounted) setState(() => _query = value);
     });
-  }
-
-  List<Channel> _filter(PlaylistState state, bool showAdult) {
-    final query = _query.trim().toLowerCase();
-    final tokens = query.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
-    final group = _effectiveGroup(state, showAdult);
-
-    final channels = state.channels;
-
-    return channels
-        .where((channel) {
-          if (!showAdult && channel.group == AppConfig.adultGroup) return false;
-          if (group != 'All' && channel.group != group) return false;
-          if (tokens.isNotEmpty &&
-              !tokens.every((token) => channel.searchHaystack.contains(token))) {
-            return false;
-          }
-          return true;
-        })
-        .toList(growable: false);
-  }
-
-  String _effectiveGroup(PlaylistState state, bool showAdult) {
-    if (_group == 'All') return 'All';
-    if (!showAdult && _group == AppConfig.adultGroup) return 'All';
-    return _group;
-  }
-
-  List<String> _visibleGroups(PlaylistState state, bool showAdult) {
-    return state.groups
-        .where((group) => showAdult || group != AppConfig.adultGroup)
-        .toList(growable: false);
   }
 
   void _playChannel(List<Channel> queue, int index) {
@@ -283,23 +255,23 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                             : ListView.builder(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 4),
-                                itemCount: _visibleGroups(state, settings.showAdult)
+                                itemCount: ChannelFilter.visibleGroups(state.groups, settings.showAdult)
                                         .length +
                                     1,
                                 itemBuilder: (context, index) {
                                   final groups =
-                                      _visibleGroups(state, settings.showAdult);
+                                      ChannelFilter.visibleGroups(state.groups, settings.showAdult);
                                   if (index == 0) {
                                     return _SidebarTile(
                                       label: 'All',
-                                      selected: _effectiveGroup(state, settings.showAdult) == 'All',
+                                      selected: ChannelFilter.effectiveGroup(_group, settings.showAdult) == 'All',
                                       onTap: () => setState(() => _group = 'All'),
                                     );
                                   }
                                   final g = groups[index - 1];
                                   return _SidebarTile(
                                     label: g,
-                                    selected: _effectiveGroup(state, settings.showAdult) == g,
+                                    selected: ChannelFilter.effectiveGroup(_group, settings.showAdult) == g,
                                     onTap: () => setState(() => _group = g),
                                   );
                                 },
@@ -369,8 +341,8 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                       if (state != null) ...[
                         const SizedBox(height: 6),
                         _CategoryBar(
-                          groups: _visibleGroups(state, settings.showAdult),
-                          selected: _effectiveGroup(state, settings.showAdult),
+                          groups: ChannelFilter.visibleGroups(state.groups, settings.showAdult),
+                          selected: ChannelFilter.effectiveGroup(_group, settings.showAdult),
                           onSelected: (g) => setState(() => _group = g),
                         ),
                         const SizedBox(height: 4),
@@ -393,7 +365,23 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                                   .read(channelProbeControllerProvider)
                                   .run(data.channels));
                             }
-                            final channels = _filter(data, settings.showAdult);
+                            final signature = Object.hash(
+                              _query,
+                              _group,
+                              settings.showAdult,
+                              identityHashCode(data.channels),
+                            );
+                            if (_cachedFiltered == null ||
+                                _filterSignature != signature) {
+                              _filterSignature = signature;
+                              _cachedFiltered = ChannelFilter.filter(
+                                data.channels,
+                                query: _query,
+                                group: _group,
+                                showAdult: settings.showAdult,
+                              );
+                            }
+                            final channels = _cachedFiltered!;
                             if (settings.listView) {
                               return ChannelList(
                                 channels: channels,
@@ -545,8 +533,12 @@ class _PlayerPanel extends ConsumerWidget {
                         child: SizedBox(
                           width: 44,
                           height: 30,
-                          child: Image.network(channel.logo!,
-                              fit: BoxFit.cover),
+                          child: CachedNetworkImage(
+                            imageUrl: channel.logo!,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 88,
+                            errorWidget: (_, _, _) => const SizedBox.shrink(),
+                          ),
                         ),
                       ),
                     const SizedBox(width: 10),
