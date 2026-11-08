@@ -109,6 +109,7 @@ class PlaylistRepository {
       groups: merged.groups,
       updatedAt: DateTime.now(),
       fromCache: false,
+      failedSources: failed,
     );
   }
 

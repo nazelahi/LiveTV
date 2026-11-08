@@ -4,12 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:media_kit/media_kit.dart';
 
-import '../widgets/glass.dart';
 import '../widgets/quality_button.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../core/app_theme.dart';
 import '../core/open_url.dart';
@@ -36,34 +35,17 @@ class WatchScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchScreenState extends ConsumerState<WatchScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   List<Channel> _related = const [];
-  bool _volumeOpen = false;
-  double _deviceVolume = 1.0;
-  StreamSubscription<double>? _volumeSubscription;
+  bool _pausedByLifecycle = false;
   late final TabController _tabController = TabController(length: 2, vsync: this);
 
   @override
   void initState() {
     super.initState();
 
+    WidgetsBinding.instance.addObserver(this);
     lockPortrait();
-
-    if (!kIsWeb) {
-      try {
-        FlutterVolumeController.updateShowSystemUI(false);
-      } catch (_) {}
-      try {
-        FlutterVolumeController.getVolume().then((value) {
-          if (mounted && value != null) setState(() => _deviceVolume = value);
-        }).catchError((_) {});
-      } catch (_) {}
-      try {
-        _volumeSubscription = FlutterVolumeController.addListener((value) {
-          if (mounted) setState(() => _deviceVolume = value);
-        });
-      } catch (_) {}
-    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -155,10 +137,39 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
   @override
   void dispose() {
-    _volumeSubscription?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     lockPortrait();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final session = ref.read(playerProvider);
+    if (session == null) return;
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      if (session.playing) {
+        _pausedByLifecycle = true;
+        ref.read(playerProvider.notifier).togglePlay();
+      }
+      try {
+        WakelockPlus.disable();
+      } catch (_) {}
+    } else if (state == AppLifecycleState.resumed) {
+      if (_pausedByLifecycle) {
+        _pausedByLifecycle = false;
+        final current = ref.read(playerProvider);
+        if (current != null && !current.playing) {
+          ref.read(playerProvider.notifier).togglePlay();
+        }
+      }
+      try {
+        WakelockPlus.enable();
+      } catch (_) {}
+    }
   }
 
   @override
@@ -293,29 +304,9 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                               child: _WatchControls(
                                 player: session.player,
                                 playing: session.playing,
-                                muted: _deviceVolume == 0,
+                                muted: session.muted,
                                 onPlayPause: () => notifier.togglePlay(),
-                                 onMute: () {
-                                    if (kIsWeb) {
-                                      final nv = _deviceVolume == 0 ? 1.0 : 0.0;
-                                      setState(() => _deviceVolume = nv);
-                                      notifier.setVolume(nv * 100);
-                                    } else {
-                                      FlutterVolumeController.toggleMute();
-                                    }
-                                  },
-                                onVolumeToggle: () =>
-                                    setState(() => _volumeOpen = !_volumeOpen),
-                                 volume: _deviceVolume * 100,
-                                 onVolumeChanged: (v) {
-                                   if (kIsWeb) {
-                                     setState(() => _deviceVolume = v / 100);
-                                     notifier.setVolume(v);
-                                   } else {
-                                     FlutterVolumeController.setVolume(v / 100);
-                                   }
-                                 },
-                                volumeOpen: _volumeOpen,
+                                onMute: () => notifier.toggleMute(),
                                 onFullscreen: () async {
                                   await Navigator.of(context).push(
                                     MaterialPageRoute<void>(
@@ -467,24 +458,16 @@ class _WatchControls extends StatelessWidget {
     required this.player,
     required this.playing,
     required this.muted,
-    required this.volume,
     required this.onPlayPause,
     required this.onMute,
-    required this.onVolumeToggle,
-    required this.onVolumeChanged,
-    required this.volumeOpen,
     required this.onFullscreen,
   });
 
   final Player player;
   final bool playing;
   final bool muted;
-  final double volume;
   final VoidCallback onPlayPause;
   final VoidCallback onMute;
-  final VoidCallback onVolumeToggle;
-  final ValueChanged<double> onVolumeChanged;
-  final bool volumeOpen;
   final VoidCallback onFullscreen;
 
   @override
@@ -505,61 +488,13 @@ class _WatchControls extends StatelessWidget {
               color: Colors.white,
             ),
           ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                tooltip: 'Volume',
-                onPressed: onVolumeToggle,
-                icon: Icon(
-                  muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                  color: Colors.white,
-                ),
-              ),
-              if (volumeOpen)
-                Positioned(
-                  bottom: 44,
-                  left: 0,
-                  child: GlassContainer(
-                    blur: 12,
-                    color: Colors.black.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(10),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 6,
-                    ),
-                    child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          RotatedBox(
-                            quarterTurns: 3,
-                            child: SizedBox(
-                              width: 90,
-                              child: Slider(
-                                value: volume,
-                                min: 0,
-                                max: 100,
-                                onChanged: onVolumeChanged,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          IconButton(
-                            tooltip: muted ? 'Unmute' : 'Mute',
-                            onPressed: onMute,
-                            icon: Icon(
-                              muted
-                                  ? Icons.volume_off_rounded
-                                  : Icons.volume_up_rounded,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ),
-            ],
+          IconButton(
+            tooltip: muted ? 'Unmute' : 'Mute',
+            onPressed: onMute,
+            icon: Icon(
+              muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              color: Colors.white,
+            ),
           ),
           IconTheme(
             data: const IconThemeData(color: Colors.white),

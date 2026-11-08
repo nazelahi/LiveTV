@@ -3,7 +3,7 @@ class AppConfig {
   AppConfig._();
 
   static const String appName = 'LiveTV';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.1';
 
   /// The playlist is downloaded on first launch and refreshed automatically.
   static const String playlistUrl =
@@ -45,10 +45,11 @@ class AppConfig {
   static const Duration healthCheckInterval = Duration(seconds: 2);
 
   /// A playing stream whose position has not moved for this long is restarted.
-  static const Duration stallTimeout = Duration(seconds: 12);
+  /// Kept generous: live streams can pause briefly without being dead.
+  static const Duration stallTimeout = Duration(seconds: 30);
 
   /// A stream that stays buffering this long is treated as dead.
-  static const Duration bufferTimeout = Duration(seconds: 20);
+  static const Duration bufferTimeout = Duration(seconds: 45);
 
   /// How long the "skipping dead channel" countdown lasts.
   static const int autoSkipSeconds = 5;

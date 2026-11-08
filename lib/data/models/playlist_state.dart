@@ -7,6 +7,7 @@ class PlaylistState {
     required this.groups,
     required this.updatedAt,
     required this.fromCache,
+    this.failedSources = const <String>[],
   });
 
   final List<Channel> channels;
@@ -19,7 +20,13 @@ class PlaylistState {
   /// True when this snapshot was read from local storage instead of the network.
   final bool fromCache;
 
+  /// Playlist URLs that could not be loaded during the last fetch. Empty when
+  /// everything succeeded (or when read from cache).
+  final List<String> failedSources;
+
   bool get isEmpty => channels.isEmpty;
+
+  bool get hasFailures => failedSources.isNotEmpty;
 }
 
 /// Result of parsing an M3U document on a background isolate.

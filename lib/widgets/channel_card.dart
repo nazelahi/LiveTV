@@ -33,6 +33,9 @@ class ChannelCard extends StatelessWidget {
       label: '${channel.name}, ${channel.group}',
       button: true,
       selected: selected,
+      hint: selectionMode
+          ? (selected ? 'Selected' : 'Double tap to select')
+          : 'Double tap to play, long press to select',
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),

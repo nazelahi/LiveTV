@@ -46,6 +46,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshOnLoad());
+    ref.listenManual(playlistProvider, (previous, next) {
+      final state = next.valueOrNull;
+      if (state == null || state.failedSources.isEmpty) return;
+      final prevFailed = previous?.valueOrNull?.failedSources;
+      if (prevFailed != null &&
+          prevFailed.length == state.failedSources.length &&
+          prevFailed.toSet().containsAll(state.failedSources)) {
+        return;
+      }
+      if (!mounted) return;
+      _toast(
+        'Some playlists failed to load '
+        '(${state.failedSources.length}). Showing the rest.',
+      );
+    });
   }
 
   @override
@@ -69,12 +84,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       await ref.read(playlistProvider.notifier).refresh();
       if (!silent && mounted) {
-        final count = ref.read(playlistProvider).valueOrNull?.channels.length;
-        _toast(
-          count == null
-              ? 'Playlist refreshed'
-              : 'Playlist refreshed — $count channels',
-        );
+        final state = ref.read(playlistProvider).valueOrNull;
+        final count = state?.channels.length;
+        if (state != null && state.failedSources.isNotEmpty) {
+          _toast(
+            'Playlist refreshed — $count channels '
+            '(${state.failedSources.length} source(s) failed)',
+          );
+        } else {
+          _toast(
+            count == null
+                ? 'Playlist refreshed'
+                : 'Playlist refreshed — $count channels',
+          );
+        }
       }
     } catch (_) {
       if (!silent && mounted) {

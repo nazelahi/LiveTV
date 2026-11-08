@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
 
 import '../core/app_theme.dart';
 import '../core/constants.dart';
@@ -30,6 +31,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _downloadingUpdate = false;
   double _downloadProgress = 0;
   String? _latestDownloadUrl;
+  String? _latestChecksum;
   bool _checkingUpdate = false;
 
   Future<void> _refresh() async {
@@ -442,6 +444,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await sink.close();
       client.close();
 
+      // Verify the downloaded APK against the published checksum when one is
+      // available, so a tampered or truncated download is never installed.
+      final expected = _latestChecksum;
+      if (expected != null && expected.isNotEmpty) {
+        final bytes = await file.readAsBytes();
+        final digest = sha256.convert(bytes).toString();
+        if (digest.toLowerCase() != expected.toLowerCase()) {
+          try {
+            await file.delete();
+          } catch (_) {}
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text('Update verification failed: checksum mismatch.'),
+              ),
+            );
+          return;
+        }
+      }
+
       if (!mounted) return;
       await _updateChannel.invokeMethod('installApk', {'path': file.path});
     } catch (e) {
@@ -561,6 +585,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _latestVersion = info?.version;
       _latestReleaseUrl = info?.releaseUrl;
       _latestDownloadUrl = info?.downloadUrl;
+      _latestChecksum = info?.checksum;
       if (_latestVersion == AppConfig.appVersion) {
         _latestReleaseUrl = null;
         _latestDownloadUrl = null;

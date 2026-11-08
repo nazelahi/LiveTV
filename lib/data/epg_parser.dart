@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:xml/xml_events.dart';
 
 import 'models/epg.dart';
@@ -156,4 +159,10 @@ DateTime? _parseTime(String? raw) {
   final wallUtc = DateTime.utc(year, month, day, hour, minute, second);
   final instantUtc = wallUtc.subtract(offset);
   return instantUtc.toLocal();
+}
+
+/// Isolate-friendly entry point that decodes the raw bytes and parses them.
+/// Keeps the (potentially large) UTF-8 decode off the UI thread.
+EpgData parseEpgBytes(Uint8List bytes) {
+  return parseEpg(utf8.decode(bytes));
 }

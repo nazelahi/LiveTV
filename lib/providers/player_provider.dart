@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:audio_session/audio_session.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../core/constants.dart';
 import '../core/playback_tuning.dart';
@@ -91,9 +94,17 @@ class PlayerSession {
 }
 
 class PlayerNotifier extends StateNotifier<PlayerSession?> {
-  PlayerNotifier(this.ref) : super(null);
+  PlayerNotifier(this.ref) : super(null) {
+    unawaited(_initAudioSession());
+    unawaited(_initConnectivity());
+  }
 
   final Ref ref;
+
+  StreamSubscription<AudioInterruptionEvent>? _audioInterruptionSub;
+  StreamSubscription<void>? _audioNoisySub;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  bool _pausedByAudioInterruption = false;
 
   StreamHealthMonitor? _health;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
@@ -101,11 +112,80 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
   Timer? _healthTimer;
   Timer? _autoSkipTimer;
   int _reconnectAttempts = 0;
+  DateTime? _lastReconnectAt;
   bool _isOpening = false;
   double _lastVolume = 100;
 
+  Future<void> _initAudioSession() async {
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.music());
+
+      _audioInterruptionSub = session.interruptionEventStream.listen((event) {
+        final current = state;
+        if (current == null) return;
+
+        if (event.begin) {
+          if (current.playing) {
+            _pausedByAudioInterruption = true;
+            try {
+              current.player.pause();
+            } catch (_) {}
+          }
+        } else {
+          if (_pausedByAudioInterruption) {
+            _pausedByAudioInterruption = false;
+            // Resume only after a pause/duck interruption, not for
+            // permanent focus loss (e.g. a phone call still active).
+            if (event.type == AudioInterruptionType.pause ||
+                event.type == AudioInterruptionType.duck) {
+              try {
+                current.player.play();
+              } catch (_) {}
+            }
+          }
+        }
+      });
+
+      _audioNoisySub = session.becomingNoisyEventStream.listen((_) {
+        final current = state;
+        if (current == null || !current.playing) return;
+        _pausedByAudioInterruption = true;
+        try {
+          current.player.pause();
+        } catch (_) {}
+      });
+    } catch (_) {
+      // Best effort: audio focus is a nice-to-have.
+    }
+  }
+
+  Future<void> _initConnectivity() async {
+    try {
+      _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+        final current = state;
+        if (current == null) return;
+        if (results.contains(ConnectivityResult.none)) return;
+        // Only act when playback has actually stalled; otherwise the change is
+        // handled by the existing transient-error / health-monitor paths.
+        if (!current.playing) {
+          _reconnectAttempts = 0;
+          _lastReconnectAt = null;
+          unawaited(_reconnect());
+        }
+      });
+    } catch (_) {
+      // Best effort.
+    }
+  }
+
   /// Opens [channel] from [queue] at [index] in the shared player.
   Future<void> play(Channel channel, List<Channel> queue, int index) async {
+    try {
+      await WakelockPlus.enable();
+    } catch (_) {}
+    _reconnectAttempts = 0;
+    _lastReconnectAt = null;
     final clamped = index.clamp(0, queue.length - 1);
 
     if (state == null) {
@@ -163,8 +243,22 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
           // Bypass transient tcp/ffurl errors: they are usually not dead
           // channels. Retry once, otherwise let the health monitor decide.
           if (isTransientStreamError(message)) {
+            final now = DateTime.now();
+            // Avoid rapid reopen loops: BDIX streams can emit these errors in
+            // bursts. Reconnect at most once per cooldown window.
+            // If playback is still active, let FFmpeg handle the hiccup internally
+            // instead of tearing down and reopening the stream (which looks like a
+            // reload to the user).
+            if (state?.playing == true) {
+              return;
+            }
+            if (_lastReconnectAt != null &&
+                now.difference(_lastReconnectAt!) < const Duration(seconds: 15)) {
+              return;
+            }
             if (_reconnectAttempts < 1) {
               _reconnectAttempts++;
+              _lastReconnectAt = now;
               unawaited(_reconnect());
             }
             return;
@@ -302,11 +396,17 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
   }
 
   void _recoverFromStall() {
+    final now = DateTime.now();
+    if (_lastReconnectAt != null &&
+        now.difference(_lastReconnectAt!) < const Duration(seconds: 15)) {
+      return;
+    }
     if (_reconnectAttempts >= 1) {
       _failCurrent('Playback stalled.');
       return;
     }
     _reconnectAttempts++;
+    _lastReconnectAt = now;
     unawaited(_reconnect());
   }
 
@@ -481,12 +581,25 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     }
     _subscriptions.clear();
 
+    _audioInterruptionSub?.cancel();
+    _audioInterruptionSub = null;
+    _audioNoisySub?.cancel();
+    _audioNoisySub = null;
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
+
     final player = state?.player;
     state = null;
     _health = null;
     _reconnectAttempts = 0;
+    _lastReconnectAt = null;
 
-    if (player == null) return;
+    if (player == null) {
+      try {
+        await WakelockPlus.disable();
+      } catch (_) {}
+      return;
+    }
 
     try {
       await player.stop();
@@ -498,6 +611,9 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     } catch (_) {
       // Ignore.
     }
+    try {
+      await WakelockPlus.disable();
+    } catch (_) {}
   }
 
   @override
@@ -509,11 +625,21 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
       subscription.cancel();
     }
     _subscriptions.clear();
+
+    _audioInterruptionSub?.cancel();
+    _audioInterruptionSub = null;
+    _audioNoisySub?.cancel();
+    _audioNoisySub = null;
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
     final player = state?.player;
     state = null;
     if (player != null) {
       unawaited(player.stop().then((_) => player.dispose()));
     }
+    try {
+      WakelockPlus.disable();
+    } catch (_) {}
     super.dispose();
   }
 }

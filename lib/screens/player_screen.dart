@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../core/app_theme.dart';
 import '../core/constants.dart';
@@ -24,15 +23,13 @@ class PlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBindingObserver {
   bool _exiting = false;
+  bool _pausedByLifecycle = false;
 
   Future<void> _exit() async {
     if (_exiting) return;
     _exiting = true;
-    try {
-      await WakelockPlus.disable();
-    } catch (_) {}
     await exitFullscreenUi();
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -42,10 +39,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void initState() {
     super.initState();
 
+    WidgetsBinding.instance.addObserver(this);
     enterFullscreenUi();
-    try {
-      WakelockPlus.enable();
-    } catch (_) {}
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -57,11 +52,32 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   void dispose() {
-    try {
-      WakelockPlus.disable();
-    } catch (_) {}
+    WidgetsBinding.instance.removeObserver(this);
     exitFullscreenUi();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final session = ref.read(playerProvider);
+    if (session == null || _exiting) return;
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      if (session.playing) {
+        _pausedByLifecycle = true;
+        ref.read(playerProvider.notifier).togglePlay();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (_pausedByLifecycle) {
+        _pausedByLifecycle = false;
+        final current = ref.read(playerProvider);
+        if (current != null && !current.playing) {
+          ref.read(playerProvider.notifier).togglePlay();
+        }
+      }
+    }
   }
 
   @override

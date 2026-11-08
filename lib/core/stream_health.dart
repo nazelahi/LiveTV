@@ -9,8 +9,8 @@ enum StreamHealth { ok, reconnect, timeout }
 /// parameter, so the timing rules can be unit-tested without real timers.
 class StreamHealthMonitor {
   StreamHealthMonitor({
-    this.stallAfter = const Duration(seconds: 12),
-    this.bufferTimeout = const Duration(seconds: 20),
+    this.stallAfter = const Duration(seconds: 30),
+    this.bufferTimeout = const Duration(seconds: 45),
   });
 
   final Duration stallAfter;

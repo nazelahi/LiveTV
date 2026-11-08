@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -42,8 +40,7 @@ class EpgRepository {
       );
     }
 
-    final raw = utf8.decode(response.bodyBytes);
-    final parsed = await compute(parseEpg, raw);
+    final parsed = await compute(parseEpgBytes, response.bodyBytes);
 
     if (parsed.channelCount == 0) {
       throw const EpgException('The downloaded guide did not contain any programmes.');
