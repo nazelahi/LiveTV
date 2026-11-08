@@ -49,19 +49,21 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
     lockPortrait();
 
-    try {
-      FlutterVolumeController.updateShowSystemUI(false);
-    } catch (_) {}
-    try {
-      FlutterVolumeController.getVolume().then((value) {
-        if (mounted && value != null) setState(() => _deviceVolume = value);
-      }).catchError((_) {});
-    } catch (_) {}
-    try {
-      _volumeSubscription = FlutterVolumeController.addListener((value) {
-        if (mounted) setState(() => _deviceVolume = value);
-      });
-    } catch (_) {}
+    if (!kIsWeb) {
+      try {
+        FlutterVolumeController.updateShowSystemUI(false);
+      } catch (_) {}
+      try {
+        FlutterVolumeController.getVolume().then((value) {
+          if (mounted && value != null) setState(() => _deviceVolume = value);
+        }).catchError((_) {});
+      } catch (_) {}
+      try {
+        _volumeSubscription = FlutterVolumeController.addListener((value) {
+          if (mounted) setState(() => _deviceVolume = value);
+        });
+      } catch (_) {}
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -293,12 +295,26 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                 playing: session.playing,
                                 muted: _deviceVolume == 0,
                                 onPlayPause: () => notifier.togglePlay(),
-                                 onMute: () => FlutterVolumeController.toggleMute(),
+                                 onMute: () {
+                                    if (kIsWeb) {
+                                      final nv = _deviceVolume == 0 ? 1.0 : 0.0;
+                                      setState(() => _deviceVolume = nv);
+                                      notifier.setVolume(nv * 100);
+                                    } else {
+                                      FlutterVolumeController.toggleMute();
+                                    }
+                                  },
                                 onVolumeToggle: () =>
                                     setState(() => _volumeOpen = !_volumeOpen),
                                  volume: _deviceVolume * 100,
-                                 onVolumeChanged: (v) =>
-                                     FlutterVolumeController.setVolume(v / 100),
+                                 onVolumeChanged: (v) {
+                                   if (kIsWeb) {
+                                     setState(() => _deviceVolume = v / 100);
+                                     notifier.setVolume(v);
+                                   } else {
+                                     FlutterVolumeController.setVolume(v / 100);
+                                   }
+                                 },
                                 volumeOpen: _volumeOpen,
                                 onFullscreen: () async {
                                   await Navigator.of(context).push(
