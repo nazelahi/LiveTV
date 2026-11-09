@@ -20,8 +20,10 @@ import '../providers/player_provider.dart';
 import '../providers/playlist_providers.dart';
 import '../widgets/channel_grid.dart';
 import '../widgets/channel_list.dart';
+import '../widgets/featured_rail.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/states.dart';
+import 'featured_screen.dart';
 import 'settings_screen.dart';
 
 /// Desktop (wide-screen) shell: three side-by-side panels.
@@ -338,6 +340,18 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                 Expanded(
                   child: Column(
                     children: [
+                      if (state != null &&
+                          _query.trim().isEmpty) ...[
+                        const SizedBox(height: 4),
+                        FeaturedRail(
+                          onSeeAll: (kind) => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => FeaturedScreen(initialKind: kind),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
                       if (state != null) ...[
                         const SizedBox(height: 6),
                         _CategoryBar(
