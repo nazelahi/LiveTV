@@ -169,6 +169,7 @@ class _Logo extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         child: Container(
           color: Colors.white.withValues(alpha: 0.06),
+          padding: const EdgeInsets.all(4),
           child: CachedNetworkImage(
             imageUrl: channel.logo!,
             fit: BoxFit.contain,
