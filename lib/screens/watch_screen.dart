@@ -42,6 +42,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   List<Channel> _related = const [];
   bool _pausedByLifecycle = false;
   bool _handlingWideResize = false;
+  bool? _openedWide;
   late final TabController _tabController = TabController(length: 2, vsync: this);
 
   @override
@@ -193,6 +194,13 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     // of staying stuck in the mobile layout.
     if (!kIsWeb) return;
     final width = MediaQuery.sizeOf(context).width;
+    if (_openedWide == null) {
+      _openedWide = width >= AppConfig.desktopBreakpoint;
+      return;
+    }
+    // Only auto-pop when the player was opened on a narrow viewport and later
+    // resized to a wide one; a player intentionally opened on desktop stays.
+    if (_openedWide == true) return;
     if (width < AppConfig.desktopBreakpoint || _handlingWideResize) return;
     _handlingWideResize = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -296,20 +304,11 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                Builder(
-                  builder: (context) {
-                    final size = MediaQuery.sizeOf(context);
-                    final availableHeight = size.height -
-                        MediaQuery.paddingOf(context).top -
-                        kToolbarHeight;
-                    final playerHeight = (size.width * 9 / 16)
-                        .clamp(0.0, availableHeight * 0.45);
-                    return SizedBox(
-                      height: playerHeight,
-                      width: size.width,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
                           Video(
                             controller: session.controller,
                             controls: NoVideoControls,
@@ -378,9 +377,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                             ),
                         ],
                       ),
-                    );
-                  },
-                ),
+                    ),
 
                 Expanded(
                   child: Column(
