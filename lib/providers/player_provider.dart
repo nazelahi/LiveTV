@@ -300,7 +300,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
       );
     }
 
-    unawaited(_openCurrent());
+    await _openCurrent();
   }
 
   Future<void> _applyPlaybackTuning(Player player, PlaybackTuning tuning) async {
@@ -366,6 +366,11 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
 
     _isOpening = true;
     try {
+      // Stop any previously playing media first so switching channels does not
+      // leave the old stream's audio running in the background.
+      try {
+        await current.player.stop();
+      } catch (_) {}
       await current.player.open(media, play: autoplay);
       _restartHideTimer();
     } catch (error) {
@@ -481,7 +486,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     zapTo(next);
   }
 
-  void zapTo(int index) {
+  Future<void> zapTo(int index) async {
     final current = state;
     if (current == null) return;
 
@@ -491,7 +496,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     final channel =
         (index >= 0 && index < queue.length) ? queue[index] : current.channel;
     state = current.copyWith(channel: channel, index: index, playing: false);
-    unawaited(_openCurrent());
+    await _openCurrent();
   }
 
   Future<void> retry() async {
