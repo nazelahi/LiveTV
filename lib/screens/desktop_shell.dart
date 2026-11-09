@@ -216,10 +216,10 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                           fontWeight: FontWeight.w800,
                           color: AppTheme.textPrimary)),
                   const SizedBox(width: 24),
-                  Expanded(
-                    child: SizedBox(
-                      height: 36,
-                      child: TextField(
+                  SizedBox(
+                    width: 500,
+                    height: 36,
+                    child: TextField(
                         controller: _searchController,
                         textInputAction: TextInputAction.search,
                         onChanged: _onSearchChanged,
@@ -242,7 +242,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                         ),
                       ),
                     ),
-                  ),
                   const SizedBox(width: 12),
                   IconButton(
                     tooltip: 'Settings',
@@ -294,37 +293,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                         padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
                         child: Row(
                           children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                gradient: AppTheme.accentGradient,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.live_tv_rounded,
-                                  size: 18, color: Colors.white),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('LiveTV',
-                                      style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppTheme.textPrimary)),
-                                  Text(
-                                    state == null
-                                        ? 'Loading…'
-                                        : '${state.channels.length} channels',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondary),
-                                  ),
-                                ],
-                              ),
-                            ),
                             IconButton(
                               tooltip: 'Refresh',
                               iconSize: 20,
