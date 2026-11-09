@@ -159,7 +159,10 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
         if (session != null) notifier.retry();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyF:
-        if (node.context != null) mkv.toggleFullscreen(node.context!);
+        // media_kit's toggleFullscreen is a native-only API; on web the
+        // dedicated PlayerScreen route (opened via the fullscreen button) is
+        // the fullscreen experience.
+        if (!kIsWeb && node.context != null) mkv.toggleFullscreen(node.context!);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.escape:
         if (session != null) notifier.close();

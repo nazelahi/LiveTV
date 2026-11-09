@@ -175,9 +175,11 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         _pausedByLifecycle = true;
         ref.read(playerProvider.notifier).togglePlay();
       }
-      try {
-        WakelockPlus.disable();
-      } catch (_) {}
+      if (!kIsWeb) {
+        try {
+          WakelockPlus.disable();
+        } catch (_) {}
+      }
     } else if (state == AppLifecycleState.resumed) {
       if (_pausedByLifecycle) {
         _pausedByLifecycle = false;
@@ -186,9 +188,11 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
           ref.read(playerProvider.notifier).togglePlay();
         }
       }
-      try {
-        WakelockPlus.enable();
-      } catch (_) {}
+      if (!kIsWeb) {
+        try {
+          WakelockPlus.enable();
+        } catch (_) {}
+      }
     }
   }
 

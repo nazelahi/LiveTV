@@ -57,7 +57,7 @@ class ChannelGrid extends StatelessWidget {
 
     final isWide = MediaQuery.sizeOf(context).width >= 1024;
     final maxExtent = isWide ? 150.0 : 96.0;
-    final spacing = isWide ? 10.0 : 6.0;
+    final spacing = isWide ? 6.0 : 6.0;
     return RefreshIndicator(
       onRefresh: onRefresh,
       color: AppTheme.accent,
@@ -65,10 +65,10 @@ class ChannelGrid extends StatelessWidget {
       child: GridView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
-          isWide ? 12 : 8,
+          isWide ? 8 : 8,
           4,
-          isWide ? 12 : 8,
-          isWide ? 24 : 80,
+          isWide ? 8 : 8,
+          isWide ? 16 : 80,
         ),
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: maxExtent,

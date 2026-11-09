@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +12,8 @@ class UpdateNotice extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // APK self-update notices don't apply to the web build.
+    if (kIsWeb) return const SizedBox.shrink();
     final async = ref.watch(latestReleaseProvider);
     final info = async.valueOrNull;
     if (info == null || !info.isNewer) return const SizedBox.shrink();

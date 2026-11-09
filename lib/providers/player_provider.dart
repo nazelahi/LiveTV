@@ -181,9 +181,11 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
 
   /// Opens [channel] from [queue] at [index] in the shared player.
   Future<void> play(Channel channel, List<Channel> queue, int index) async {
-    try {
-      await WakelockPlus.enable();
-    } catch (_) {}
+    if (!kIsWeb) {
+      try {
+        await WakelockPlus.enable();
+      } catch (_) {}
+    }
     _reconnectAttempts = 0;
     _lastReconnectAt = null;
     final clamped = index.clamp(0, queue.length - 1);
@@ -600,9 +602,11 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     _lastReconnectAt = null;
 
     if (player == null) {
-      try {
-        await WakelockPlus.disable();
-      } catch (_) {}
+      if (!kIsWeb) {
+        try {
+          await WakelockPlus.disable();
+        } catch (_) {}
+      }
       return;
     }
 
@@ -616,9 +620,11 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     } catch (_) {
       // Ignore.
     }
-    try {
-      await WakelockPlus.disable();
-    } catch (_) {}
+    if (!kIsWeb) {
+      try {
+        await WakelockPlus.disable();
+      } catch (_) {}
+    }
   }
 
   @override
@@ -642,9 +648,11 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     if (player != null) {
       unawaited(player.stop().then((_) => player.dispose()));
     }
-    try {
-      WakelockPlus.disable();
-    } catch (_) {}
+    if (!kIsWeb) {
+      try {
+        WakelockPlus.disable();
+      } catch (_) {}
+    }
     super.dispose();
   }
 }

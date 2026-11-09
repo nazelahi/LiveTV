@@ -85,7 +85,7 @@ class ChannelCard extends StatelessWidget {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.all(2),
+                padding: const EdgeInsets.all(1),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
@@ -94,7 +94,7 @@ class ChannelCard extends StatelessWidget {
                       dimension: 54,
                       child: _Logo(channel: channel),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     Text(
                       channel.name,
                       maxLines: 2,
