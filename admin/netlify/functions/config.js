@@ -28,6 +28,12 @@ exports.handler = async (event) => {
       updatedAt: null,
       channelCount: 0,
       groupCount: 0,
+      androidDownloadEnabled: true,
+      androidDownloadTitle: "Get the Android app",
+      androidDownloadSubtitle: "Download the native app for smoother playback.",
+      androidDownloadButton: "Download",
+      androidDownloadUrl: "",
+      androidDownloadVersion: "",
     };
     if (!config.playlistUrl) {
       config.playlistUrl = defaultPlaylistUrl;

@@ -25,6 +25,27 @@ class AppConfig {
   static const String appReleaseUrl =
       'https://api.github.com/repos/nazelahi/LiveTV/releases/latest';
 
+  // ---------------------------------------------------------------------------
+  // Web Android download banner defaults
+  // ---------------------------------------------------------------------------
+
+  /// Whether the web Android download banner is shown by default.
+  static const bool androidDownloadEnabled = true;
+
+  /// Default title (version is appended as " (vX)" when known).
+  static const String androidDownloadTitle = 'Get the Android app';
+
+  /// Default subtitle.
+  static const String androidDownloadSubtitle =
+      'Download the native app for smoother playback.';
+
+  /// Default button label.
+  static const String androidDownloadButton = 'Download';
+
+  /// Default download URL. Empty means "resolve from GitHub releases /
+  /// the hardcoded releases page".
+  static const String androidDownloadUrl = '';
+
   static const String epgUrl =
       'https://raw.githubusercontent.com/saeidrahmanbd/BDIX-IPTV/main/epg/epg.xml';
 

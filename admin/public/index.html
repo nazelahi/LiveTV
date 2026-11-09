@@ -340,6 +340,30 @@
             <button id="loadUrl" class="secondary">Load first into editor</button>
           </div>
         </section>
+
+        <section class="card">
+          <h2>Android download banner (web)</h2>
+          <p class="subtitle">Overrides for the web-only Android download banner. Leave a field empty to fall back to the app default.</p>
+          <label class="field-label" for="adEnabled">Enabled</label>
+          <select id="adEnabled" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(120,160,220,0.18);background:var(--input);color:var(--text);">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+          <label class="field-label" for="adUrl" style="margin-top:14px;">Download URL</label>
+          <input id="adUrl" placeholder="https://github.com/.../releases/latest" />
+          <label class="field-label" for="adVersion" style="margin-top:14px;">Version</label>
+          <input id="adVersion" placeholder="1.0.1" />
+          <label class="field-label" for="adTitle" style="margin-top:14px;">Title</label>
+          <input id="adTitle" placeholder="Get the Android app" />
+          <label class="field-label" for="adSubtitle" style="margin-top:14px;">Subtitle</label>
+          <input id="adSubtitle" placeholder="Download the native app for smoother playback." />
+          <label class="field-label" for="adButton" style="margin-top:14px;">Button label</label>
+          <input id="adButton" placeholder="Download" />
+          <div class="btn-row">
+            <button id="saveBanner">Save banner</button>
+            <button id="loadBanner" class="secondary">Load current</button>
+          </div>
+        </section>
       </div>
 
       <div class="section">
@@ -420,6 +444,13 @@
           "<div class='row'><span>Updated</span><strong>" + (cfg.updatedAt || "—") + "</strong></div>" +
           "<div class='row'><span>URLs</span><code>" + (urls || []).join("<br>") + "</code></div>" +
           "</div>";
+      document.getElementById("adEnabled").value =
+        cfg.androidDownloadEnabled === false ? "false" : "true";
+      document.getElementById("adUrl").value = cfg.androidDownloadUrl || "";
+      document.getElementById("adVersion").value = cfg.androidDownloadVersion || "";
+      document.getElementById("adTitle").value = cfg.androidDownloadTitle || "";
+      document.getElementById("adSubtitle").value = cfg.androidDownloadSubtitle || "";
+      document.getElementById("adButton").value = cfg.androidDownloadButton || "";
       } catch (e) {
         document.getElementById("current").textContent = "Error: " + e.message;
       }
@@ -673,6 +704,39 @@
     tokenInput.addEventListener("change", () => {
       if (token()) loadHistory();
     });
+
+    document.getElementById("saveBanner").onclick = async () => {
+      const payload = {
+        androidDownloadEnabled: document.getElementById("adEnabled").value === "true",
+        androidDownloadUrl: document.getElementById("adUrl").value.trim(),
+        androidDownloadVersion: document.getElementById("adVersion").value.trim(),
+        androidDownloadTitle: document.getElementById("adTitle").value.trim(),
+        androidDownloadSubtitle: document.getElementById("adSubtitle").value.trim(),
+        androidDownloadButton: document.getElementById("adButton").value.trim(),
+      };
+      status.textContent = "Saving banner...";
+      try {
+        const d = await api("/.netlify/functions/update", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        status.textContent = "Banner saved. Version: " + d.version;
+        await loadCurrent();
+      } catch (e) { status.textContent = "Error: " + e.message; }
+    };
+
+    document.getElementById("loadBanner").onclick = async () => {
+      try {
+        const cfg = await fetch("/.netlify/functions/config").then(r => r.json());
+        document.getElementById("adEnabled").value = cfg.androidDownloadEnabled === false ? "false" : "true";
+        document.getElementById("adUrl").value = cfg.androidDownloadUrl || "";
+        document.getElementById("adVersion").value = cfg.androidDownloadVersion || "";
+        document.getElementById("adTitle").value = cfg.androidDownloadTitle || "";
+        document.getElementById("adSubtitle").value = cfg.androidDownloadSubtitle || "";
+        document.getElementById("adButton").value = cfg.androidDownloadButton || "";
+        status.textContent = "Banner fields loaded.";
+      } catch (e) { status.textContent = "Error: " + e.message; }
+    };
 
     loadCurrent();
   </script>

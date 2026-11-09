@@ -25,3 +25,7 @@
 -keepclasseswithmembernames class * {
     native <methods>;
 }
+
+# Sentry
+-keep class io.sentry.** { *; }
+-dontwarn io.sentry.**

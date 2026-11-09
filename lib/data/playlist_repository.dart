@@ -113,9 +113,12 @@ class PlaylistRepository {
     );
   }
 
+  /// Public accessor for the remote config (playlist + banner fields).
+  Future<RemoteConfig?> fetchRemoteConfig() => _fetchConfig();
+
   /// Fetches remote config, if configured. Returns null on any failure so the
   /// app falls back to the built-in playlist URL.
-  Future<_RemoteConfig?> _fetchConfig() async {
+  Future<RemoteConfig?> _fetchConfig() async {
     if (AppConfig.configUrl.isEmpty) return null;
     try {
       final response = await _client
@@ -143,9 +146,26 @@ class PlaylistRepository {
       if (urls.isEmpty) return null;
 
       final version = decoded['version'];
-      return _RemoteConfig(
+      bool? androidEnabled;
+      final rawEnabled = decoded['androidDownloadEnabled'];
+      if (rawEnabled is bool) {
+        androidEnabled = rawEnabled;
+      } else if (rawEnabled is String) {
+        final v = rawEnabled.trim().toLowerCase();
+        if (v == 'true') androidEnabled = true;
+        if (v == 'false') androidEnabled = false;
+      }
+      String? str(dynamic v) =>
+          v is String && v.trim().isNotEmpty ? v.trim() : null;
+      return RemoteConfig(
         urls: urls,
         version: version is int ? version : int.tryParse('$version'),
+        androidDownloadEnabled: androidEnabled,
+        androidDownloadUrl: str(decoded['androidDownloadUrl']),
+        androidDownloadVersion: str(decoded['androidDownloadVersion']),
+        androidDownloadTitle: str(decoded['androidDownloadTitle']),
+        androidDownloadSubtitle: str(decoded['androidDownloadSubtitle']),
+        androidDownloadButton: str(decoded['androidDownloadButton']),
       );
     } catch (_) {
       return null;
@@ -333,11 +353,27 @@ class PlaylistRepository {
   }
 }
 
-class _RemoteConfig {
-  const _RemoteConfig({required this.urls, this.version});
+class RemoteConfig {
+  const RemoteConfig({
+    required this.urls,
+    this.version,
+    this.androidDownloadEnabled,
+    this.androidDownloadUrl,
+    this.androidDownloadVersion,
+    this.androidDownloadTitle,
+    this.androidDownloadSubtitle,
+    this.androidDownloadButton,
+  });
 
   final List<String> urls;
   final int? version;
+
+  final bool? androidDownloadEnabled;
+  final String? androidDownloadUrl;
+  final String? androidDownloadVersion;
+  final String? androidDownloadTitle;
+  final String? androidDownloadSubtitle;
+  final String? androidDownloadButton;
 
   String get url => urls.isNotEmpty ? urls.first : '';
 }

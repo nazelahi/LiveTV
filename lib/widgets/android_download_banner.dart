@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
+import '../core/constants.dart';
 import '../core/open_url.dart';
-import '../providers/update_provider.dart';
+import '../providers/android_download_provider.dart';
 
 /// A web-only banner offering a download link to the native Android APK.
 class AndroidDownloadBanner extends ConsumerWidget {
@@ -14,14 +15,22 @@ class AndroidDownloadBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (!kIsWeb) return const SizedBox.shrink();
 
-    final info = ref.watch(latestReleaseProvider).valueOrNull;
-    final url = (info?.downloadUrl != null && info!.downloadUrl!.isNotEmpty)
-        ? info.downloadUrl!
-        : (info?.releaseUrl != null && info!.releaseUrl!.isNotEmpty)
-            ? info.releaseUrl!
-            : 'https://github.com/nazelahi/LiveTV/releases/latest';
+    final config = ref.watch(androidDownloadConfigProvider).valueOrNull ??
+        AndroidDownloadConfig(
+          enabled: AppConfig.androidDownloadEnabled,
+          url: AppConfig.androidDownloadUrl.isNotEmpty
+              ? AppConfig.androidDownloadUrl
+              : 'https://github.com/nazelahi/LiveTV/releases/latest',
+          title: AppConfig.androidDownloadTitle,
+          subtitle: AppConfig.androidDownloadSubtitle,
+          buttonLabel: AppConfig.androidDownloadButton,
+        );
 
-    final version = info?.version;
+    if (!config.enabled) return const SizedBox.shrink();
+
+    final displayTitle = config.version == null
+        ? config.title
+        : '${config.title} (v${config.version})';
 
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 6, 10, 4),
@@ -41,9 +50,7 @@ class AndroidDownloadBanner extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  version == null
-                      ? 'Get the Android app'
-                      : 'Get the Android app (v$version)',
+                  displayTitle,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -51,16 +58,16 @@ class AndroidDownloadBanner extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  'Download the native app for smoother playback.',
+                  config.subtitle,
                   style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                 ),
               ],
             ),
           ),
           FilledButton.icon(
-            onPressed: () => openUrlInNewTab(url),
+            onPressed: () => openUrlInNewTab(config.url),
             icon: const Icon(Icons.download_rounded, size: 16),
-            label: const Text('Download'),
+            label: Text(config.buttonLabel),
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.accentSecondary,
               foregroundColor: Colors.white,

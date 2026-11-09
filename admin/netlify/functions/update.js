@@ -139,6 +139,56 @@ exports.handler = async (event) => {
     });
   }
 
+  // Mode 0: update Android download banner fields only.
+  const bannerFields = [
+    "androidDownloadEnabled",
+    "androidDownloadUrl",
+    "androidDownloadVersion",
+    "androidDownloadTitle",
+    "androidDownloadSubtitle",
+    "androidDownloadButton",
+  ];
+  const hasBannerUpdate = bannerFields.some((field) =>
+    Object.prototype.hasOwnProperty.call(body, field)
+  );
+  if (hasBannerUpdate) {
+    if (
+      body.androidDownloadUrl != null &&
+      String(body.androidDownloadUrl).trim() !== "" &&
+      !/^https?:\/\//i.test(String(body.androidDownloadUrl).trim())
+    ) {
+      return json(400, {
+        stage: "validate-banner-url",
+        error: "Invalid URL",
+        message: "androidDownloadUrl must start with http:// or https://",
+      });
+    }
+    try {
+      const { current, version } = await readConfig(store);
+      const next = { ...(current || {}) };
+      for (const field of bannerFields) {
+        if (Object.prototype.hasOwnProperty.call(body, field)) {
+          next[field] = body[field];
+        }
+      }
+      if (typeof next.androidDownloadEnabled === "string") {
+        const v = next.androidDownloadEnabled.trim().toLowerCase();
+        next.androidDownloadEnabled = v === "true";
+      }
+      next.version = version + 1;
+      next.updatedAt = new Date().toISOString();
+      await store.setJSON("config", next);
+      return json(200, next);
+    } catch (err) {
+      return json(500, {
+        stage: "set-banner-config",
+        error: "Save failed at set-banner-config",
+        message: err && err.message,
+        stack: err && err.stack,
+      });
+    }
+  }
+
   // Mode 1: point the app at one or more externally hosted playlists.
   if (externalUrls.length > 0) {
     const invalid = externalUrls.find((url) => !/^https?:\/\//i.test(url));
@@ -152,7 +202,7 @@ exports.handler = async (event) => {
     }
 
     try {
-      const { version } = await readConfig(store);
+      const { current, version } = await readConfig(store);
       const results = await Promise.all(
         externalUrls.map(async (url) => {
           const outcome = await fetchPlaylistStats(url);
@@ -173,6 +223,7 @@ exports.handler = async (event) => {
       const hasStats = results.some((result) => result.stats);
 
       const next = {
+        ...(current || {}),
         playlistUrls: externalUrls,
         playlistUrl: externalUrls[0],
         version: version + 1,
@@ -254,10 +305,11 @@ exports.handler = async (event) => {
     await store.set("playlist", m3u);
 
     stage = "get-config";
-    const { version } = await readConfig(store);
+    const { current, version } = await readConfig(store);
     const nextVersion = version + 1;
     const hostedUrl = `${process.env.URL || ""}/.netlify/functions/playlist`;
     const next = {
+      ...(current || {}),
       playlistUrls: [hostedUrl],
       playlistUrl: hostedUrl,
       version: nextVersion,
