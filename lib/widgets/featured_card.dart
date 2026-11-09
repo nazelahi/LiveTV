@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../core/constants.dart';
 import '../data/featured_programs.dart';
 import 'featured_visuals.dart';
 
@@ -16,6 +17,18 @@ class FeaturedCard extends StatelessWidget {
   static const double width = 160;
   static const double height = 96;
 
+  static const double desktopWidth = 280;
+  static const double desktopHeight = 160;
+
+  static bool isDesktop(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= AppConfig.desktopBreakpoint;
+
+  static double widthFor(BuildContext context) =>
+      isDesktop(context) ? desktopWidth : width;
+
+  static double heightFor(BuildContext context) =>
+      isDesktop(context) ? desktopHeight : height;
+
   final FeaturedProgramme item;
   final DateTime now;
   final VoidCallback onTap;
@@ -25,9 +38,12 @@ class FeaturedCard extends StatelessWidget {
     final programme = item.programme;
     final live = programme.isLiveAt(now);
 
+    final cardWidth = FeaturedCard.widthFor(context);
+    final cardHeight = FeaturedCard.heightFor(context);
+
     return SizedBox(
-      width: width,
-      height: height,
+      width: cardWidth,
+      height: cardHeight,
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),

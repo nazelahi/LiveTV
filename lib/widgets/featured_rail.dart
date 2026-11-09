@@ -180,7 +180,7 @@ class FeaturedRailContent extends StatelessWidget {
         const SizedBox(height: 6),
         if (items.isEmpty)
           SizedBox(
-            height: FeaturedCard.height,
+            height: FeaturedCard.heightFor(context),
             child: Center(
               child: Text(
                 'No ${(selected?.pluralLabel ?? 'featured').toLowerCase()} '
@@ -194,7 +194,7 @@ class FeaturedRailContent extends StatelessWidget {
           )
         else
           SizedBox(
-            height: FeaturedCard.height,
+            height: FeaturedCard.heightFor(context),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
