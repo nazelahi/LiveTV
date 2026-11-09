@@ -19,6 +19,7 @@ import '../widgets/android_download_banner.dart';
 import '../widgets/update_notice.dart';
 import '../widgets/states.dart';
 import 'featured_screen.dart';
+import '../providers/player_provider.dart';
 import 'watch_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -129,6 +130,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _toggleSelection(queue[index]);
       return;
     }
+    // If a watch page is already open, switch channels in place instead of
+    // stacking another route (which caused overlapping/background audio).
+    if (isWatchScreenOpen) {
+      ref.read(playerProvider.notifier).play(queue[index], queue, index);
+      return;
+    }
+    ref.read(playerProvider.notifier).play(queue[index], queue, index);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: 'watch'),

@@ -105,16 +105,22 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
     ref.read(playerProvider.notifier).play(queue[index], queue, index);
     // On web, open a dedicated YouTube-style watch page instead of the
     // inline right-hand panel.
-    if (kIsWeb && !_openingWatch) {
-      _openingWatch = true;
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          settings: const RouteSettings(name: 'watch'),
-          builder: (_) => WatchScreen(queue: queue, initialIndex: index),
-        ),
-      ).then((_) {
-        _openingWatch = false;
-      });
+    if (kIsWeb) {
+      if (isWatchScreenOpen) {
+        // Update the already-open watch page instead of stacking another.
+        return;
+      }
+      if (!_openingWatch) {
+        _openingWatch = true;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            settings: const RouteSettings(name: 'watch'),
+            builder: (_) => WatchScreen(queue: queue, initialIndex: index),
+          ),
+        ).then((_) {
+          _openingWatch = false;
+        });
+      }
     }
   }
 

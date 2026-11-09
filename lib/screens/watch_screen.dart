@@ -23,6 +23,10 @@ import '../providers/playlist_providers.dart';
 import 'player_screen.dart';
 import '../core/screen_orientation.dart';
 
+/// Tracks whether a [WatchScreen] is currently on the navigation stack, so
+/// callers can update the existing player instead of pushing a duplicate.
+bool isWatchScreenOpen = false;
+
 class WatchScreen extends ConsumerStatefulWidget {
   const WatchScreen({
     super.key,
@@ -48,6 +52,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   @override
   void initState() {
     super.initState();
+    isWatchScreenOpen = true;
 
     WidgetsBinding.instance.addObserver(this);
     lockPortrait();
@@ -147,6 +152,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
   @override
   void dispose() {
+    isWatchScreenOpen = false;
     WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     lockPortrait();

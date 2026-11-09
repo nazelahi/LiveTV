@@ -8,6 +8,7 @@ import '../providers/playlist_providers.dart';
 import '../widgets/channel_grid.dart';
 import '../widgets/channel_list.dart';
 import '../widgets/states.dart';
+import '../providers/player_provider.dart';
 import 'watch_screen.dart';
 
 class FavoritesScreen extends ConsumerStatefulWidget {
@@ -42,6 +43,11 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
 
   void _openChannel(List<Channel> queue, int index) {
     if (queue.isEmpty) return;
+    if (isWatchScreenOpen) {
+      ref.read(playerProvider.notifier).play(queue[index], queue, index);
+      return;
+    }
+    ref.read(playerProvider.notifier).play(queue[index], queue, index);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: 'watch'),

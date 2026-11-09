@@ -9,6 +9,7 @@ import '../core/notifications.dart';
 import '../providers/reminder_provider.dart';
 import '../data/featured_programs.dart';
 import '../screens/epg_screen.dart';
+import '../providers/player_provider.dart';
 import '../screens/watch_screen.dart';
 import 'featured_visuals.dart';
 
