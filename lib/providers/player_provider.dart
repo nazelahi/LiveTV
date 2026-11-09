@@ -339,9 +339,6 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
 
     _cancelAutoSkip();
     final autoplay = ref.read(settingsProvider).autoplay;
-    // Browsers block unmuted autoplay; on web, defer playback to the user's
-    // first interaction instead of risking a silently stalled stream.
-    final playOnOpen = kIsWeb ? false : autoplay;
     _health?.reset();
     _health?.beginOpen(DateTime.now(), expectPlayback: autoplay);
 
@@ -349,7 +346,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
       state = current.copyWith(
         error: null,
         clearError: true,
-        buffering: playOnOpen,
+        buffering: autoplay,
         playing: false,
         controlsVisible: true,
         autoSkipRemaining: null,
@@ -369,10 +366,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
 
     _isOpening = true;
     try {
-      // Browsers block unmuted autoplay; on web, defer playback to the user's
-      // first interaction instead of risking a silently stalled stream.
-      final playOnOpen = kIsWeb ? false : autoplay;
-      await current.player.open(media, play: playOnOpen);
+      await current.player.open(media, play: autoplay);
       _restartHideTimer();
     } catch (error) {
       if (state == null) return;
