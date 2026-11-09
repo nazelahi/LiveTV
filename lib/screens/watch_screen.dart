@@ -402,16 +402,15 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
+                            ClipOval(
                               child: SizedBox(
-                                width: 40,
-                                height: 28,
+                                width: 48,
+                                height: 48,
                                 child: session.channel.hasLogo
                                     ? CachedNetworkImage(
                                         imageUrl: session.channel.logo!,
                                         fit: BoxFit.cover,
-                                        memCacheWidth: 80,
+                                        memCacheWidth: 96,
                                         imageRenderMethodForWeb: kIsWeb
                                             ? ImageRenderMethodForWeb.HttpGet
                                             : ImageRenderMethodForWeb.HtmlImage,
@@ -421,7 +420,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                     : _channelFallback(session.channel),
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,7 +428,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                   Text(
                                     session.channel.name,
                                     style: const TextStyle(
-                                      fontSize: 16,
+                                      fontSize: 18,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
@@ -443,6 +442,64 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                     ),
                                   ),
                                   _EpgNowNext(channel: session.channel),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                        child: Row(
+                          children: [
+                            FilledButton.tonal(
+                              onPressed: () => ref
+                                  .read(favoritesProvider.notifier)
+                                  .toggle(session.channel.id),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    ref.watch(favoritesProvider).contains(session.channel.id)
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(ref.watch(favoritesProvider).contains(session.channel.id)
+                                      ? 'Saved'
+                                      : 'Save'),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () async {
+                                await shareChannelLink(session.channel.id);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Link copied')),
+                                  );
+                                }
+                              },
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.share_rounded, size: 18),
+                                  SizedBox(width: 6),
+                                  Text('Share'),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () => notifier.retry(),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.refresh_rounded, size: 18),
+                                  SizedBox(width: 6),
+                                  Text('Reload'),
                                 ],
                               ),
                             ),
