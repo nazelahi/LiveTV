@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -57,8 +56,7 @@ class ChannelGrid extends StatelessWidget {
     }
 
     final isWide = MediaQuery.sizeOf(context).width >= 1024;
-    final isWebWide = kIsWeb && isWide;
-    final maxExtent = isWebWide ? 340.0 : (isWide ? 150.0 : 96.0);
+    final maxExtent = isWide ? 150.0 : 96.0;
     final spacing = isWide ? 10.0 : 6.0;
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -76,7 +74,7 @@ class ChannelGrid extends StatelessWidget {
           maxCrossAxisExtent: maxExtent,
           mainAxisSpacing: spacing,
           crossAxisSpacing: spacing,
-          childAspectRatio: isWebWide ? 3.2 : (isWide ? 0.85 : 0.78),
+          childAspectRatio: isWide ? 0.85 : 0.78,
         ),
         itemCount: channels.length,
         itemBuilder: (context, index) {
