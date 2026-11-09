@@ -1,10 +1,25 @@
 # LiveTV
 
-A small Flutter IPTV player that loads the
-[BDIX-IPTV International playlist](https://github.com/saeidrahmanbd/BDIX-IPTV)
-on launch and plays channels inside the app.
+[![Flutter](https://img.shields.io/badge/Flutter-3.47.6-02569B?logo=flutter)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-3.13.5-0175C2?logo=dart)](https://dart.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web%20%7C%20macOS-lightgrey)]()
 
-## What it does
+A Flutter IPTV player that loads the
+[BDIX-IPTV International playlist](https://github.com/saeidrahmanbd/BDIX-IPTV)
+on launch and plays channels inside the app. Runs on Android, iOS, macOS and the
+web.
+
+## Screenshots
+
+> Add your own screenshots to `docs/screenshots/` (e.g. `home.png`,
+> `watch.png`, `settings.png`) and they will render here.
+
+| Home | Watch | Settings |
+|------|-------|----------|
+| ![Home](docs/screenshots/home.png) | ![Watch](docs/screenshots/watch.png) | ![Settings](docs/screenshots/settings.png) |
+
+## Features
 
 - **Auto-loads** the playlist from GitHub on first start and caches it, so the
   channel list opens instantly next time and still works offline.
@@ -18,6 +33,13 @@ on launch and plays channels inside the app.
   URL, favourite, buffering indicator and a readable error screen with retry.
 - **Adult section hidden by default.** Enable it in Settings after a
   confirmation.
+- **TV guide (EPG)** downloadable on demand (~69 MB) — now/next info on the
+  watch screen and a full browsable guide.
+- **Featured rail** of live and upcoming movies, sports, news and shows.
+- **Deep links / sharing** — every playing channel gets a shareable `/#/watch/<id>`
+  URL; refresh or open it to land on that channel.
+- **Web build** with a responsive desktop layout, immersive watch page and
+  mixed-content handling.
 - Dark UI, landscape player, keeps the screen awake, immersive mode.
 
 ## Admin panel
@@ -29,7 +51,8 @@ remote config from `/.netlify/functions/config` on that site (see
 ## Requirements
 
 - Flutter 3.47 or newer (Dart 3.13+)
-- Android SDK (API 21+) and/or Xcode for iOS
+- Android SDK (API 21+) and/or Xcode for iOS / macOS
+- A modern browser for the web build
 
 ## Run
 
@@ -63,20 +86,32 @@ for those channels instead of playing them in-page.
 
 ```text
 lib/
-  core/                 constants, theme, small helpers
+  core/                 constants, theme, small helpers (deep links, open URL)
   data/
     models/             Channel, PlaylistState
     m3u_parser.dart     dependency-free EXTINF parser (runs on an isolate)
     playlist_repository.dart  download + Hive cache
     hive_store.dart     box names/accessors
-  providers/            Riverpod providers (settings, favourites, playlist)
-  screens/              home, favourites, settings, player, root shell
-  widgets/              channel card/grid and loading/error/empty states
+  providers/            Riverpod providers (settings, favourites, playlist, player)
+  screens/              home, favourites, featured, settings, player, root shell
+  widgets/              channel card/grid/tile, featured rail, loading/error states
 ```
 
 The playlist is cached as raw text in Hive and parsed with `compute()` in a
 background isolate. The parser and its tests are pure Dart, so they run without
 any platform setup.
+
+## Architecture notes
+
+- State management: **Riverpod** (`StateNotifierProvider` for the player,
+  `FutureProvider`/`AsyncNotifier` for playlist & EPG).
+- Storage: **Hive** (playlist, parsed cache, favourites, EPG, settings).
+- Playback: **media_kit** (libmpv) with a shared `Player`/`VideoController`
+  owned by `PlayerNotifier`; the watch screen and desktop shell both drive the
+  same instance to avoid overlapping audio.
+- Web specifics: hash-based deep links, responsive desktop shell (≥ 900 px),
+  mixed-content detection, and an immersive `PlayerScreen` route instead of
+  native fullscreen.
 
 ## Notes and limitations
 
@@ -99,3 +134,14 @@ any platform setup.
 flutter test
 flutter analyze
 ```
+
+## Contributing
+
+1. Fork the repo and create a feature branch.
+2. Run `flutter analyze` and `flutter test` before opening a PR.
+3. Keep changes focused; match the existing style (Riverpod providers, Hive
+   cache, `compute()` for heavy parsing).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
