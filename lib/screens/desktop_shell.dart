@@ -28,6 +28,7 @@ import '../widgets/skeleton.dart';
 import '../widgets/states.dart';
 import 'featured_screen.dart';
 import 'settings_screen.dart';
+import 'watch_screen.dart';
 
 /// Desktop (wide-screen) shell: three side-by-side panels.
 /// Sidebar | Channels | Player + info.
@@ -106,6 +107,16 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
   void _playChannel(List<Channel> queue, int index) {
     if (queue.isEmpty) return;
     ref.read(playerProvider.notifier).play(queue[index], queue, index);
+    // On web, open a dedicated YouTube-style watch page instead of the
+    // inline right-hand panel.
+    if (kIsWeb) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'watch'),
+          builder: (_) => WatchScreen(queue: queue, initialIndex: index),
+        ),
+      );
+    }
   }
 
   void _toggleFavorite(Channel channel) {
