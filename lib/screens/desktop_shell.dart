@@ -3,25 +3,20 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:media_kit_video/media_kit_video.dart' as mkv;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
 import '../core/channel_filter.dart';
 import '../core/constants.dart';
-import '../core/open_url.dart';
 import '../data/models/channel.dart';
 
 import '../providers/channel_probe_provider.dart';
-import '../providers/epg_providers.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_providers.dart';
 import '../widgets/android_download_banner.dart';
 import '../widgets/channel_grid.dart';
-import '../widgets/quality_button.dart';
+
 import '../widgets/channel_list.dart';
 import '../widgets/featured_rail.dart';
 import '../widgets/skeleton.dart';
@@ -440,23 +435,8 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                     ],
                   ),
                 ),
-                // ---- Right player panel (only when a channel is playing) ----
-                if (ref.watch(playerProvider) != null)
-                  Container(
-                    width: (MediaQuery.sizeOf(context).width *
-                          AppConfig.desktopPlayerPanelFraction)
-                      .clamp(AppConfig.desktopPlayerPanelMinWidth,
-                          AppConfig.desktopPlayerPanelMaxWidth),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      border: Border(
-                        left: BorderSide(
-                          color: AppTheme.textMuted.withValues(alpha: 0.2),
-                        ),
-                      ),
-                    ),
-                    child: const _PlayerPanel(),
-                  ),
+                // Playback now opens a dedicated watch page (see _playChannel),
+                // so no inline right-hand player panel is rendered here.
               ],
             ),
           ),
@@ -505,221 +485,6 @@ class _SidebarTile extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _PlayerPanel extends ConsumerWidget {
-  const _PlayerPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(playerProvider);
-    final epg = ref.watch(epgProvider).valueOrNull;
-
-    if (session == null) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.play_circle_outline_rounded,
-                size: 56, color: AppTheme.textMuted),
-            SizedBox(height: 12),
-            Text('Select a channel to play',
-                style: TextStyle(color: AppTheme.textSecondary)),
-          ],
-        ),
-      );
-    }
-
-    final channel = session.channel;
-    String? nowTitle;
-    String? nextTitle;
-    if (epg != null) {
-      final key = channel.tvgId ?? channel.id;
-      final now = epg.now(key);
-      final next = epg.next(key);
-      nowTitle = now?.title;
-      nextTitle = next?.title;
-    }
-
-    return Column(
-      children: [
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => ref.read(playerProvider.notifier).togglePlay(),
-            onDoubleTap: () => ref.read(playerProvider.notifier).togglePlay(),
-            child: Video(
-              controller: session.controller,
-              controls: NoVideoControls,
-              fit: BoxFit.contain,
-              wakelock: false,
-              pauseUponEnteringBackgroundMode: false,
-              resumeUponEnteringForegroundMode: false,
-            ),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (channel.hasLogo)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: SizedBox(
-                          width: 44,
-                          height: 30,
-                          child: CachedNetworkImage(
-                            imageUrl: channel.logo!,
-                            fit: BoxFit.cover,
-                            memCacheWidth: 88,
-                            imageRenderMethodForWeb: kIsWeb
-                                ? ImageRenderMethodForWeb.HttpGet
-                                : ImageRenderMethodForWeb.HtmlImage,
-                            errorWidget: (_, _, _) => const SizedBox.shrink(),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(channel.name,
-                              style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppTheme.textPrimary)),
-                          Text(channel.group,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (session.error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(session.error!,
-                      style: const TextStyle(
-                          color: AppTheme.danger, fontSize: 12)),
-                ],
-                if (nowTitle != null) ...[
-                  const SizedBox(height: 10),
-                  Text('Now: $nowTitle',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppTheme.accent)),
-                ],
-                if (nextTitle != null) ...[
-                  const SizedBox(height: 4),
-                  Text('Next: $nextTitle',
-                      style: TextStyle(
-                          fontSize: 11.5,
-                          color: AppTheme.textSecondary)),
-                ],
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    IconButton(
-                      tooltip: session.playing ? 'Pause' : 'Play',
-                      onPressed: () =>
-                          ref.read(playerProvider.notifier).togglePlay(),
-                      icon: Icon(session.playing
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded),
-                    ),
-                    IconButton(
-                      tooltip: session.muted ? 'Unmute' : 'Mute',
-                      onPressed: () =>
-                          ref.read(playerProvider.notifier).toggleMute(),
-                      icon: Icon(session.muted
-                          ? Icons.volume_off_rounded
-                          : Icons.volume_up_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Previous',
-                      onPressed: session.queue.length > 1
-                          ? () => ref.read(playerProvider.notifier).zap(-1)
-                          : null,
-                      icon: const Icon(Icons.skip_previous_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Next',
-                      onPressed: session.queue.length > 1
-                          ? () => ref.read(playerProvider.notifier).zap(1)
-                          : null,
-                      icon: const Icon(Icons.skip_next_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Reload',
-                      onPressed: () =>
-                          ref.read(playerProvider.notifier).retry(),
-                      icon: const Icon(Icons.refresh_rounded),
-                    ),
-                    IconTheme(
-                      data: const IconThemeData(color: AppTheme.textPrimary),
-                      child: QualityButton(player: session.player),
-                    ),
-                    IconButton(
-                      tooltip: 'Fullscreen',
-                      onPressed: () => mkv.toggleFullscreen(context),
-                      icon: const Icon(Icons.fullscreen_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Close player',
-                      onPressed: () =>
-                          ref.read(playerProvider.notifier).close(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Copy channel link',
-                      onPressed: () async {
-                        await shareChannelLink(session.channel.id);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context)
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(
-                              const SnackBar(content: Text('Channel link copied')),
-                            );
-                        }
-                      },
-                      icon: const Icon(Icons.link_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      session.muted || session.volume == 0
-                          ? Icons.volume_off_rounded
-                          : Icons.volume_up_rounded,
-                      size: 18,
-                      color: AppTheme.textSecondary,
-                    ),
-                    Expanded(
-                      child: Slider(
-                        value: session.volume,
-                        min: 0,
-                        max: 100,
-                        onChanged: (v) =>
-                            ref.read(playerProvider.notifier).setVolume(v),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
