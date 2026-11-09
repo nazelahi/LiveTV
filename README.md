@@ -12,12 +12,12 @@ web.
 
 ## Screenshots
 
-> Add your own screenshots to `docs/screenshots/` (e.g. `home.png`,
-> `watch.png`, `settings.png`) and they will render here.
+> Screenshots captured from the running web build. Add more (e.g.
+> `settings.jpg`) to `docs/screenshots/` to extend this gallery.
 
-| Home | Watch | Settings |
-|------|-------|----------|
-| ![Home](docs/screenshots/home.png) | ![Watch](docs/screenshots/watch.png) | ![Settings](docs/screenshots/settings.png) |
+| Home | Watch |
+|------|-------|
+| ![Home](docs/screenshots/home.jpg) | ![Watch](docs/screenshots/watch.jpg) |
 
 ## Features
 
