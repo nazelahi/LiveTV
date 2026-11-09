@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:media_kit_video/media_kit_video.dart' as mkv;
@@ -551,6 +552,9 @@ class _PlayerPanel extends ConsumerWidget {
                             imageUrl: channel.logo!,
                             fit: BoxFit.cover,
                             memCacheWidth: 88,
+                            imageRenderMethodForWeb: kIsWeb
+                                ? ImageRenderMethodForWeb.HttpGet
+                                : ImageRenderMethodForWeb.HtmlImage,
                             errorWidget: (_, _, _) => const SizedBox.shrink(),
                           ),
                         ),

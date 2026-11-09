@@ -1,4 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -289,6 +291,9 @@ class _GuideTile extends StatelessWidget {
                         imageUrl: logo!,
                         fit: BoxFit.cover,
                         memCacheWidth: 88,
+                        imageRenderMethodForWeb: kIsWeb
+                            ? ImageRenderMethodForWeb.HttpGet
+                            : ImageRenderMethodForWeb.HtmlImage,
                         errorWidget: (_, _, _) => _fallback(name),
                       )
                     : _fallback(name),

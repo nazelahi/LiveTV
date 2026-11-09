@@ -1,4 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -106,6 +108,9 @@ class ProgrammeBackdrop extends StatelessWidget {
         imageUrl: poster,
         fit: BoxFit.cover,
         memCacheWidth: 640,
+        imageRenderMethodForWeb: kIsWeb
+            ? ImageRenderMethodForWeb.HttpGet
+            : ImageRenderMethodForWeb.HtmlImage,
         fadeInDuration: const Duration(milliseconds: 180),
         placeholder: (_, _) => _fallback(),
         errorWidget: (_, _, _) => _fallback(),
@@ -148,6 +153,9 @@ class ProgrammeBackdrop extends StatelessWidget {
                 imageUrl: logo,
                 fit: BoxFit.contain,
                 memCacheWidth: 260,
+                imageRenderMethodForWeb: kIsWeb
+                    ? ImageRenderMethodForWeb.HttpGet
+                    : ImageRenderMethodForWeb.HtmlImage,
                 placeholder: (_, _) => const SizedBox.shrink(),
                 errorWidget: (_, _, _) => _initial(),
               ),

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../core/app_theme.dart';
@@ -308,6 +309,9 @@ class _TopBar extends StatelessWidget {
                       imageUrl: channel.logo!,
                       fit: BoxFit.cover,
                       memCacheWidth: 64,
+                      imageRenderMethodForWeb: kIsWeb
+                          ? ImageRenderMethodForWeb.HttpGet
+                          : ImageRenderMethodForWeb.HtmlImage,
                       errorWidget: (_, _, _) => _playerFallback(channel),
                     )
                   : _playerFallback(channel),

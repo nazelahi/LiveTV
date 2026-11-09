@@ -1,4 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -199,6 +201,9 @@ class _ChannelRow extends StatelessWidget {
                     imageUrl: logo,
                     fit: BoxFit.contain,
                     memCacheWidth: 120,
+                    imageRenderMethodForWeb: kIsWeb
+                        ? ImageRenderMethodForWeb.HttpGet
+                        : ImageRenderMethodForWeb.HtmlImage,
                     placeholder: (_, _) => const SizedBox.shrink(),
                     errorWidget: (_, _, _) => const Icon(
                       Icons.live_tv_rounded,

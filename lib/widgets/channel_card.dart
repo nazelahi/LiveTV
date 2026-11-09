@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -159,7 +160,10 @@ class _Logo extends StatelessWidget {
             imageUrl: channel.logo!,
             fit: BoxFit.contain,
             alignment: Alignment.center,
-            memCacheWidth: kIsWeb ? null : 220,
+            memCacheWidth: 220,
+            imageRenderMethodForWeb: kIsWeb
+                ? ImageRenderMethodForWeb.HttpGet
+                : ImageRenderMethodForWeb.HtmlImage,
             useOldImageOnUrlChange: true,
             fadeInDuration: const Duration(milliseconds: 180),
             placeholder: (context, url) => const SizedBox.expand(
