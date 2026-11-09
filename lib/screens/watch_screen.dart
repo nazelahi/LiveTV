@@ -5,7 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit_video/media_kit_video.dart' as mkv;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 
@@ -363,11 +363,20 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                 player: session.player,
                                 playing: session.playing,
                                 muted: session.muted,
+                                volume: session.volume,
                                 onPlayPause: () => notifier.togglePlay(),
                                 onMute: () => notifier.toggleMute(),
+                                onVolumeChanged: (v) => notifier.setVolume(v),
                                 onFullscreen: () async {
                                    if (kIsWeb) {
-                                     await mkv.toggleFullscreen(context);
+                                     await Navigator.of(context).push(
+                                       MaterialPageRoute<void>(
+                                         settings: const RouteSettings(name: 'player'),
+                                         builder: (_) => const PlayerScreen(),
+                                       ),
+                                     );
+                                     if (!mounted) return;
+                                     await exitFullscreenUi();
                                      return;
                                    }
                                    await Navigator.of(context).push(
@@ -523,16 +532,20 @@ class _WatchControls extends StatelessWidget {
     required this.player,
     required this.playing,
     required this.muted,
+    required this.volume,
     required this.onPlayPause,
     required this.onMute,
+    required this.onVolumeChanged,
     required this.onFullscreen,
   });
 
   final Player player;
   final bool playing;
   final bool muted;
+  final double volume;
   final VoidCallback onPlayPause;
   final VoidCallback onMute;
+  final ValueChanged<double> onVolumeChanged;
   final VoidCallback onFullscreen;
 
   @override
@@ -571,6 +584,25 @@ class _WatchControls extends StatelessWidget {
             icon: const Icon(Icons.fullscreen_rounded, color: Colors.white),
           ),
           const Spacer(),
+        ],
+      ),
+      Row(
+        children: [
+          Icon(
+            muted || volume == 0
+                ? Icons.volume_off_rounded
+                : Icons.volume_up_rounded,
+            size: 16,
+            color: Colors.white70,
+          ),
+          Expanded(
+            child: Slider(
+              value: volume,
+              min: 0,
+              max: 100,
+              onChanged: onVolumeChanged,
+            ),
+          ),
         ],
       ),
         ],
