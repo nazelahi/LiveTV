@@ -222,47 +222,6 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     });
   }
 
-  Widget _buildRelatedSidebar() {
-    final notifier = ref.read(playerProvider.notifier);
-    return Container(
-      color: AppTheme.backgroundAlt,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text(
-              'Up next',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-          ),
-          Expanded(
-            child: _related.isEmpty
-                ? const Center(child: Text('No related channels'))
-                : ListView.builder(
-                    itemCount: _related.length,
-                    itemBuilder: (context, index) {
-                      final channel = _related[index];
-                      return _RelatedTile(
-                        channel: channel,
-                        onTap: () {
-                          final i =
-                              widget.queue.indexWhere((c) => c.id == channel.id);
-                          if (i >= 0) {
-                            notifier.play(channel, widget.queue, i);
-                          } else {
-                            notifier.play(channel, [channel], 0);
-                          }
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(playerProvider);
@@ -349,10 +308,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
       ),
       body: session == null
           ? const Center(child: CircularProgressIndicator())
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 900;
-                final content = Column(
+          : Column(
               children: [
                 AspectRatio(
                   aspectRatio: 16 / 9,
@@ -555,16 +511,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                   ),
                 ),
               ],
-                );
-                if (!wide) return content;
-                return Row(
-                  children: [
-                    Expanded(flex: 3, child: content),
-                    Expanded(flex: 2, child: _buildRelatedSidebar()),
-                  ],
-                );
-              },
-            ),
+                ),
     ),
     ),
     );
