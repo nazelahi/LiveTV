@@ -8,8 +8,10 @@ import '../core/app_theme.dart';
 import '../data/models/channel.dart';
 import '../data/models/epg.dart';
 import '../data/models/playlist_state.dart';
+import '../core/notifications.dart';
 import '../providers/epg_providers.dart';
 import '../providers/playlist_providers.dart';
+import '../providers/reminder_provider.dart';
 
 class EpgScreen extends ConsumerStatefulWidget {
   const EpgScreen({super.key});
@@ -468,6 +470,42 @@ class EpgChannelScreen extends StatelessWidget {
                           color: AppTheme.textSecondary,
                           height: 1.4,
                         ),
+                      ),
+                    ],
+                    if (!isLive && programme.start.isAfter(DateTime.now())) ...[
+                      const SizedBox(height: 6),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final notifier = ref.read(reminderProvider.notifier);
+                          final reminded = ref.watch(reminderProvider).contains(
+                                notifier.keyFor(channelId, programme.start),
+                              );
+                          return TextButton.icon(
+                            onPressed: () async {
+                              await ReminderNotifications.requestPermission();
+                              try {
+                                await notifier.toggle(
+                                  channelId: channelId,
+                                  channelName: title,
+                                  programme: programme,
+                                );
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Reminder failed: $e')),
+                                  );
+                                }
+                              }
+                            },
+                            icon: Icon(
+                              reminded
+                                  ? Icons.notifications_active_rounded
+                                  : Icons.notifications_none_rounded,
+                              size: 16,
+                            ),
+                            label: Text(reminded ? 'Reminder set' : 'Remind me'),
+                          );
+                        },
                       ),
                     ],
                   ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livetv/data/featured_programs.dart';
 import 'package:livetv/data/models/channel.dart';
@@ -28,8 +29,9 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
           body: Builder(
             builder: (context) => Center(
               child: TextButton(
@@ -39,6 +41,7 @@ void main() {
             ),
           ),
         ),
+      ),
       ),
     );
 

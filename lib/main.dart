@@ -7,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 
 import 'app.dart';
 import 'core/app_theme.dart';
+import 'core/notifications.dart';
 import 'data/hive_store.dart';
 
 Future<void> main() async {
@@ -28,6 +29,7 @@ Future<void> main() async {
   // splash screen and render the app shell immediately.
   await Hive.initFlutter();
   await HiveStore.open();
+  await ReminderNotifications.init();
   MediaKit.ensureInitialized();
 
   runApp(const ProviderScope(child: LiveTvApp()));

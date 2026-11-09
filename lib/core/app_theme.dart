@@ -105,6 +105,30 @@ class AppTheme {
         color: Colors.white.withValues(alpha: 0.08),
         thickness: 1,
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: backgroundAlt,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: textMuted.withValues(alpha: 0.3)),
+        ),
+        titleTextStyle: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          color: textPrimary,
+        ),
+        contentTextStyle: TextStyle(
+          fontSize: 13,
+          color: textSecondary,
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: backgroundAlt,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: textMuted.withValues(alpha: 0.3)),
+        ),
+        textStyle: TextStyle(color: textPrimary, fontSize: 13),
+      ),
     );
   }
 }

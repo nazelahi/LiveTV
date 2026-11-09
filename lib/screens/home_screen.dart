@@ -15,6 +15,7 @@ import '../widgets/channel_grid.dart';
 import '../widgets/channel_list.dart';
 import '../widgets/featured_rail.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/android_download_banner.dart';
 import '../widgets/update_notice.dart';
 import '../widgets/states.dart';
 import 'featured_screen.dart';
@@ -283,6 +284,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SliverToBoxAdapter(child: SizedBox(height: 4)),
                     ],
                     SliverToBoxAdapter(child: UpdateNotice()),
+                    const SliverToBoxAdapter(child: AndroidDownloadBanner()),
                     if (_selectionMode)
                       SliverToBoxAdapter(
                         child: _SelectionBar(

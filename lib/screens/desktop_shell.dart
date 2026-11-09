@@ -19,6 +19,7 @@ import '../providers/channel_probe_provider.dart';
 import '../providers/epg_providers.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_providers.dart';
+import '../widgets/android_download_banner.dart';
 import '../widgets/channel_grid.dart';
 import '../widgets/channel_list.dart';
 import '../widgets/featured_rail.dart';
@@ -302,6 +303,11 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                               onPressed: () => showDialog<void>(
                                 context: context,
                                 builder: (_) => Dialog(
+                                  backgroundColor: AppTheme.backgroundAlt,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+                                  ),
                                   child: SizedBox(
                                     width: 480,
                                     height: 640,
@@ -341,6 +347,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                 Expanded(
                   child: Column(
                     children: [
+                      const AndroidDownloadBanner(),
                       if (state != null &&
                           _query.trim().isEmpty) ...[
                         const SizedBox(height: 4),

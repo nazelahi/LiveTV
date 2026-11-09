@@ -218,6 +218,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.backgroundAlt,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+        ),
         title: Text('${channel.name} is not responding'),
         content: Text(detail),
         actions: [

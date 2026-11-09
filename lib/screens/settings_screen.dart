@@ -61,6 +61,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.backgroundAlt,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+        ),
         title: const Text('Clear saved playlist?'),
         content: const Text(
           'The playlist will be downloaded again from its source. '
@@ -106,6 +111,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.backgroundAlt,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+        ),
         title: const Text('Show adult channels?'),
         content: Text(
           adultCount == 0
@@ -664,6 +674,11 @@ Future<void> _confirmAndDownloadEpg(
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        backgroundColor: AppTheme.backgroundAlt,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+        ),
         title: const Text('Download TV guide?'),
         content: const Text(
           'The guide file is about 69 MB and will be stored in your browser. '

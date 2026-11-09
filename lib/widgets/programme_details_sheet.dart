@@ -2,8 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
+import '../core/notifications.dart';
+import '../providers/reminder_provider.dart';
 import '../data/featured_programs.dart';
 import '../screens/epg_screen.dart';
 import '../screens/watch_screen.dart';
@@ -144,6 +147,39 @@ class _ProgrammeDetailsSheet extends StatelessWidget {
                     icon: const Icon(Icons.calendar_month_rounded, size: 18),
                     label: const Text('Channel guide'),
                   ),
+                ),
+                const SizedBox(height: 8),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final notifier = ref.read(reminderProvider.notifier);
+                    final channelId = item.channel.tvgId?.trim().isNotEmpty == true
+                        ? item.channel.tvgId!.trim()
+                        : item.channel.id;
+                    final reminded = ref.watch(reminderProvider).contains(
+                          notifier.keyFor(channelId, item.programme.start),
+                        );
+                    return SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await ReminderNotifications.requestPermission();
+                          await notifier.toggle(
+                            channelId: channelId,
+                            channelName: item.channel.name,
+                            programme: item.programme,
+                          );
+                        },
+                        icon: Icon(
+                          reminded
+                              ? Icons.notifications_active_rounded
+                              : Icons.notifications_none_rounded,
+                          size: 18,
+                        ),
+                        label: Text(reminded ? 'Reminder set' : 'Remind me'),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
