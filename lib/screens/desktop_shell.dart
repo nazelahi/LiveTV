@@ -177,9 +177,102 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
               decoration: BoxDecoration(gradient: AppTheme.backgroundGradient),
             ),
           ),
+          // Top app bar (YouTube-style)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppTheme.textMuted.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.accentGradient,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.live_tv_rounded,
+                        size: 18, color: Colors.white),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text('LiveTV',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary)),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: TextField(
+                        controller: _searchController,
+                        textInputAction: TextInputAction.search,
+                        onChanged: _onSearchChanged,
+                        decoration: InputDecoration(
+                          hintText: 'Search channels',
+                          prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                          isDense: true,
+                          filled: true,
+                          fillColor: Colors.black.withValues(alpha: 0.4),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide(
+                                color: AppTheme.textMuted.withValues(alpha: 0.3)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide(
+                                color: AppTheme.textMuted.withValues(alpha: 0.3)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    tooltip: 'Settings',
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => Dialog(
+                        backgroundColor: AppTheme.backgroundAlt,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                              color: AppTheme.textMuted.withValues(alpha: 0.3)),
+                        ),
+                        child: SizedBox(
+                          width: 480,
+                          height: 640,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: const SettingsScreen(),
+                          ),
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.settings_rounded,
+                        color: AppTheme.textPrimary),
+                  ),
+                ],
+              ),
+            ),
+          ),
           ShimmerScope(
-            child: Row(
-              children: [
+            child: Padding(
+              padding: const EdgeInsets.only(top: 56),
+              child: Row(
+                children: [
                 // ---- Left sidebar ----
                 Container(
                   width: AppConfig.desktopSidebarWidth,
@@ -244,19 +337,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                                       color: AppTheme.textPrimary),
                             ),
                           ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: TextField(
-                          controller: _searchController,
-                          textInputAction: TextInputAction.search,
-                          onChanged: _onSearchChanged,
-                          decoration: const InputDecoration(
-                            hintText: 'Search channels',
-                            prefixIcon: Icon(Icons.search_rounded, size: 18),
-                            isDense: true,
-                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -439,6 +519,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                 // so no inline right-hand player panel is rendered here.
               ],
             ),
+          ),
           ),
         ],
       ),
