@@ -131,6 +131,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'watch'),
         builder: (_) => WatchScreen(queue: queue, initialIndex: index),
       ),
     );

@@ -194,6 +194,7 @@ class _ProgrammeDetailsSheet extends StatelessWidget {
     navigator.pop();
     navigator.push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'watch'),
         builder: (_) => WatchScreen(queue: [item.channel], initialIndex: 0),
       ),
     );

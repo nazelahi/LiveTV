@@ -60,6 +60,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (ModalRoute.of(context)?.isCurrent != true) return;
     final session = ref.read(playerProvider);
     if (session == null || _exiting) return;
 
@@ -109,6 +110,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
             controls: NoVideoControls,
             fit: BoxFit.contain,
             wakelock: false,
+             pauseUponEnteringBackgroundMode: false,
+             resumeUponEnteringForegroundMode: false,
           ),
           GestureDetector(
             behavior: HitTestBehavior.opaque,

@@ -21,6 +21,7 @@ import '../providers/player_provider.dart';
 import '../providers/playlist_providers.dart';
 import '../widgets/android_download_banner.dart';
 import '../widgets/channel_grid.dart';
+import '../widgets/quality_button.dart';
 import '../widgets/channel_list.dart';
 import '../widgets/featured_rail.dart';
 import '../widgets/skeleton.dart';
@@ -535,10 +536,18 @@ class _PlayerPanel extends ConsumerWidget {
       children: [
         AspectRatio(
           aspectRatio: 16 / 9,
-          child: Video(
-            controller: session.controller,
-            fit: BoxFit.contain,
-            wakelock: false,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => ref.read(playerProvider.notifier).togglePlay(),
+            onDoubleTap: () => ref.read(playerProvider.notifier).togglePlay(),
+            child: Video(
+              controller: session.controller,
+              controls: NoVideoControls,
+              fit: BoxFit.contain,
+              wakelock: false,
+              pauseUponEnteringBackgroundMode: false,
+              resumeUponEnteringForegroundMode: false,
+            ),
           ),
         ),
         Expanded(
@@ -642,6 +651,10 @@ class _PlayerPanel extends ConsumerWidget {
                       onPressed: () =>
                           ref.read(playerProvider.notifier).retry(),
                       icon: const Icon(Icons.refresh_rounded),
+                    ),
+                    IconTheme(
+                      data: const IconThemeData(color: AppTheme.textPrimary),
+                      child: QualityButton(player: session.player),
                     ),
                     IconButton(
                       tooltip: 'Fullscreen',

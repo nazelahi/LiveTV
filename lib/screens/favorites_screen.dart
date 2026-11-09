@@ -44,6 +44,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
     if (queue.isEmpty) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'watch'),
         builder: (_) => WatchScreen(queue: queue, initialIndex: index),
       ),
     );

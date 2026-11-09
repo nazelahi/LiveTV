@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:media_kit_video/media_kit_video.dart' as mkv;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 
@@ -39,6 +41,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   List<Channel> _related = const [];
   bool _pausedByLifecycle = false;
+  bool _handlingWideResize = false;
   late final TabController _tabController = TabController(length: 2, vsync: this);
 
   @override
@@ -151,6 +154,10 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Only the route currently on top should react to app lifecycle changes;
+    // otherwise a pushed fullscreen player and the underlying screen both pause
+    // (and double-toggle) playback.
+    if (ModalRoute.of(context)?.isCurrent != true) return;
     final session = ref.read(playerProvider);
     if (session == null) return;
 
@@ -179,6 +186,29 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // On the web, a mobile player pushed onto the stack should hand off to the
+    // desktop shell's inline player when the viewport grows wide enough, instead
+    // of staying stuck in the mobile layout.
+    if (!kIsWeb) return;
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < AppConfig.desktopBreakpoint || _handlingWideResize) return;
+    _handlingWideResize = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _handlingWideResize = false;
+        return;
+      }
+      if (MediaQuery.sizeOf(context).width >= AppConfig.desktopBreakpoint) {
+        // Keep playback running: just pop the mobile view.
+        Navigator.of(context).pop();
+      }
+      _handlingWideResize = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final session = ref.watch(playerProvider);
     final notifier = ref.read(playerProvider.notifier);
@@ -198,8 +228,23 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         if (didPop) return;
         _close();
       },
-      child: Scaffold(
-        backgroundColor: AppTheme.background,
+      child: Focus(
+        autofocus: kIsWeb,
+        onKeyEvent: (node, event) {
+          if (!kIsWeb || event is! KeyDownEvent) return KeyEventResult.ignored;
+          final notifier = ref.read(playerProvider.notifier);
+          switch (event.logicalKey) {
+            case LogicalKeyboardKey.space:
+              notifier.togglePlay();
+              return KeyEventResult.handled;
+            case LogicalKeyboardKey.keyM:
+              notifier.toggleMute();
+              return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Scaffold(
+          backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -270,6 +315,8 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                             controls: NoVideoControls,
                             fit: BoxFit.contain,
                             wakelock: false,
+                             pauseUponEnteringBackgroundMode: false,
+                             resumeUponEnteringForegroundMode: false,
                           ),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
@@ -314,14 +361,19 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                 onPlayPause: () => notifier.togglePlay(),
                                 onMute: () => notifier.toggleMute(),
                                 onFullscreen: () async {
-                                  await Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => const PlayerScreen(),
-                                    ),
-                                  );
-                                  if (!mounted) return;
-                                  await exitFullscreenUi();
-                                },
+                                   if (kIsWeb) {
+                                     await mkv.toggleFullscreen(context);
+                                     return;
+                                   }
+                                   await Navigator.of(context).push(
+                                     MaterialPageRoute<void>(
+                                       settings: const RouteSettings(name: 'player'),
+                                       builder: (_) => const PlayerScreen(),
+                                     ),
+                                   );
+                                   if (!mounted) return;
+                                   await exitFullscreenUi();
+                                 },
                               ),
                             ),
                         ],
@@ -457,6 +509,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                 ),
               ],
             ),
+    ),
     ),
     );
   }
