@@ -86,9 +86,9 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   }
 
   Future<void> _close() async {
-    if (kIsWeb) {
-      // Keep playback running on web so the underlying shell's inline player
-      // can take over; just dismiss the watch page.
+    if (kIsWeb && _openedWide == true) {
+      // On desktop web, keep playback running so the underlying shell can
+      // take over; just dismiss the watch page.
       if (mounted) Navigator.of(context).pop();
       return;
     }

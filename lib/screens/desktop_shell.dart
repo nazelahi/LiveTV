@@ -37,6 +37,7 @@ class DesktopShell extends ConsumerStatefulWidget {
 class _DesktopShellState extends ConsumerState<DesktopShell> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
+  bool _openingWatch = false;
 
   String _query = '';
   String _group = 'All';
@@ -104,13 +105,16 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
     ref.read(playerProvider.notifier).play(queue[index], queue, index);
     // On web, open a dedicated YouTube-style watch page instead of the
     // inline right-hand panel.
-    if (kIsWeb) {
+    if (kIsWeb && !_openingWatch) {
+      _openingWatch = true;
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           settings: const RouteSettings(name: 'watch'),
           builder: (_) => WatchScreen(queue: queue, initialIndex: index),
         ),
-      );
+      ).then((_) {
+        _openingWatch = false;
+      });
     }
   }
 

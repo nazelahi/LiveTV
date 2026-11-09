@@ -142,7 +142,23 @@ class _RootScreenState extends ConsumerState<RootScreen> {
       if (state != null) {
         final idx = state.channels.indexWhere((c) => c.id == id);
         if (idx >= 0 && mounted) {
-          if (MediaQuery.sizeOf(context).width >= AppConfig.desktopBreakpoint) {
+          if (kIsWeb) {
+            ref.read(playerProvider.notifier).play(
+                  state.channels[idx],
+                  state.channels,
+                  idx,
+                );
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                settings: const RouteSettings(name: 'watch'),
+                builder: (_) => WatchScreen(
+                  queue: state.channels,
+                  initialIndex: idx,
+                ),
+              ),
+            );
+          } else if (MediaQuery.sizeOf(context).width >=
+              AppConfig.desktopBreakpoint) {
             ref.read(playerProvider.notifier).play(
                   state.channels[idx],
                   state.channels,
