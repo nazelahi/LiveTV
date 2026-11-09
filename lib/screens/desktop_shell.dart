@@ -231,22 +231,10 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                         controller: _searchController,
                         textInputAction: TextInputAction.search,
                         onChanged: _onSearchChanged,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           hintText: 'Search channels',
-                          prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                          prefixIcon: Icon(Icons.search_rounded, size: 18),
                           isDense: true,
-                          filled: true,
-                          fillColor: Colors.black.withValues(alpha: 0.4),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            borderSide: BorderSide(
-                                color: AppTheme.textMuted.withValues(alpha: 0.3)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            borderSide: BorderSide(
-                                color: AppTheme.textMuted.withValues(alpha: 0.3)),
-                          ),
                         ),
                       ),
                     ),
