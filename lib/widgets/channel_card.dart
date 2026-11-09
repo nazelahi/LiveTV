@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
+import '../core/constants.dart';
 import '../data/models/channel.dart';
 import 'favorite_button.dart';
 import 'skeleton.dart';
@@ -117,7 +118,11 @@ class ChannelCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (onFavorite != null && !selectionMode)
+              if (onFavorite != null &&
+                  !selectionMode &&
+                  !(kIsWeb &&
+                      MediaQuery.sizeOf(context).width >=
+                          AppConfig.desktopBreakpoint))
                 Positioned(
                   top: 2,
                   right: 2,
