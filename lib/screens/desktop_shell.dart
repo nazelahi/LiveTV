@@ -216,10 +216,12 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                           fontWeight: FontWeight.w800,
                           color: AppTheme.textPrimary)),
                   const SizedBox(width: 24),
-                  SizedBox(
-                    width: 500,
-                    height: 36,
-                    child: TextField(
+                  Expanded(
+                    child: Center(
+                      child: SizedBox(
+                        width: 500,
+                        height: 36,
+                        child: TextField(
                         controller: _searchController,
                         textInputAction: TextInputAction.search,
                         onChanged: _onSearchChanged,
@@ -242,7 +244,23 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                         ),
                       ),
                     ),
+                    ),
+                    ),
                   const SizedBox(width: 12),
+                  IconButton(
+                    tooltip: 'Refresh',
+                    onPressed: _refreshing ? null : () => _refresh(),
+                    icon: _refreshing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppTheme.accent),
+                          )
+                        : const Icon(Icons.refresh_rounded,
+                            color: AppTheme.textPrimary),
+                  ),
+                  const SizedBox(width: 4),
                   IconButton(
                     tooltip: 'Settings',
                     onPressed: () => showDialog<void>(
@@ -289,28 +307,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   ),
                   child: Column(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              tooltip: 'Refresh',
-                              iconSize: 20,
-                              onPressed: _refreshing ? null : () => _refresh(),
-                              icon: _refreshing
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: AppTheme.accent),
-                                    )
-                                  : const Icon(Icons.refresh_rounded,
-                                      color: AppTheme.textPrimary),
-                            ),
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: 8),
                       Expanded(
                         child: state == null
