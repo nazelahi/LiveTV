@@ -459,7 +459,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                               );
                             }
                             final channels = _cachedFiltered!;
-                            if (kIsWeb || settings.listView) {
+                            if (settings.listView) {
                               return ChannelList(
                                 channels: channels,
                                 favorites: favorites,
