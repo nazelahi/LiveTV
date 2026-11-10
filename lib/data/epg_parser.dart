@@ -166,3 +166,43 @@ DateTime? _parseTime(String? raw) {
 EpgData parseEpgBytes(Uint8List bytes) {
   return parseEpg(utf8.decode(bytes));
 }
+
+/// Web-friendly variant that parses in chunks, yielding to the event loop
+/// between chunks so the UI thread stays responsive on large guides.
+Future<EpgData> parseEpgChunked(Uint8List bytes) async {
+  const marker = '</programme>';
+  final content = utf8.decode(bytes);
+  final byChannel = <String, List<Programme>>{};
+  var offset = 0;
+  const chunkSize = 2 * 1024 * 1024;
+
+  while (offset < content.length) {
+    var end = offset + chunkSize;
+    if (end >= content.length) {
+      end = content.length;
+    } else {
+      final idx = content.lastIndexOf(marker, end);
+      if (idx >= offset) {
+        end = idx + marker.length;
+      }
+    }
+    final fragment = content.substring(offset, end);
+    if (fragment.contains('<programme')) {
+      final wrapped = '<tv>$fragment</tv>';
+      final part = parseEpg(wrapped);
+      for (final entry in part.byChannel.entries) {
+        byChannel
+            .putIfAbsent(entry.key, () => <Programme>[])
+            .addAll(entry.value);
+      }
+    }
+    offset = end == offset ? content.length : end;
+    // Yield to the event loop so the UI can paint between chunks.
+    await Future<void>.delayed(Duration.zero);
+  }
+
+  for (final list in byChannel.values) {
+    list.sort((a, b) => a.start.compareTo(b.start));
+  }
+  return EpgData(byChannel: byChannel, fetchedAt: DateTime.now());
+}

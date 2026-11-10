@@ -8,6 +8,9 @@ import '../core/app_theme.dart';
 import '../core/constants.dart';
 import '../core/sync_url_stub.dart'
     if (dart.library.html) '../core/sync_url_web.dart';
+import '../core/hash_nav_stub.dart'
+    if (dart.library.html) '../core/hash_nav_web.dart';
+import '../screens/deep_link_watch_screen.dart';
 import '../providers/deep_link_provider.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_providers.dart';
@@ -46,9 +49,28 @@ class _RootScreenState extends ConsumerState<RootScreen> {
     SettingsScreen(),
   ];
 
+  Timer? _hashPollTimer;
+  String _lastHash = '';
+
+  @override
+  void dispose() {
+    _hashPollTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) {
+      _lastHash = currentUrlHash();
+      _hashPollTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+        final next = currentUrlHash();
+        if (next != _lastHash) {
+          _lastHash = next;
+          _handleHashChange();
+        }
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _consumeDeepLink());
   }
 
@@ -117,12 +139,36 @@ class _RootScreenState extends ConsumerState<RootScreen> {
     });
   }
 
+  void _handleHashChange() {
+    if (!mounted || !kIsWeb) return;
+    final fragment = currentUrlHash();
+    _lastHash = fragment;
+    final candidate = fragment.startsWith('#') ? fragment : '#/$fragment';
+    final id = parseWatchDeepLink(candidate);
+
+    final navigator = Navigator.of(context);
+    if (id != null) {
+      if (_watchRoute?.isActive == true) return;
+      final route = MaterialPageRoute<void>(
+        settings: RouteSettings(name: '/#/watch/${Uri.encodeComponent(id)}'),
+        builder: (_) => DeepLinkWatchScreen(channelId: id),
+      );
+      _watchRoute = route;
+      unawaited(navigator.push(route).then((_) {
+        if (_watchRoute == route) _watchRoute = null;
+      }));
+    } else if (_watchRoute?.isActive == true) {
+      navigator.maybePop();
+    }
+  }
+
   bool _isWideFor(double width) {
     return width >= AppConfig.desktopBreakpoint;
   }
 
   Future<void> _consumeDeepLink() async {
-    if (!kIsWeb) return;
+    // On web, deep links are handled by onGenerateRoute in app.dart.
+    if (kIsWeb) return;
     var id = ref.read(pendingDeepLinkProvider);
     // On web there is no splash screen to capture the URL hash, so parse it
     // here as well.
@@ -193,6 +239,8 @@ class _RootScreenState extends ConsumerState<RootScreen> {
     // refresh/share/deep-link all land on the right channel.
     if (kIsWeb) {
       ref.listen(playerProvider, (previous, next) {
+        // A pushed watch route owns the URL while it is on the stack.
+        if (_watchRoute?.isActive == true) return;
         syncPlaybackUrl(next?.channel.id);
       });
     }

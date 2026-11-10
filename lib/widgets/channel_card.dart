@@ -162,7 +162,7 @@ class _Logo extends StatelessWidget {
             alignment: Alignment.center,
             memCacheWidth: 220,
             imageRenderMethodForWeb: kIsWeb
-                ? ImageRenderMethodForWeb.HttpGet
+                ? ImageRenderMethodForWeb.HtmlImage
                 : ImageRenderMethodForWeb.HtmlImage,
             useOldImageOnUrlChange: true,
             fadeInDuration: const Duration(milliseconds: 180),

@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_theme.dart';
 import '../core/channel_filter.dart';
 import '../core/constants.dart';
+import '../core/skip_dead_channels.dart';
+import '../providers/dead_channels_provider.dart';
 import '../data/models/channel.dart';
 
 import '../providers/channel_probe_provider.dart';
@@ -336,7 +338,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           showAdult: settings.showAdult,
                         );
                       }
-                      final channels = _cachedFiltered!;
+                      final dead = ref.watch(deadChannelsProvider);
+                      final channels = dead.isEmpty
+                          ? _cachedFiltered!
+                          : filterAliveChannels(_cachedFiltered!, dead);
                       _visibleChannels = channels;
                       if (settings.listView) {
                         return ChannelList(

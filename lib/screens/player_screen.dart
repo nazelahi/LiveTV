@@ -318,7 +318,7 @@ class _TopBar extends StatelessWidget {
                       fit: BoxFit.cover,
                       memCacheWidth: 64,
                       imageRenderMethodForWeb: kIsWeb
-                          ? ImageRenderMethodForWeb.HttpGet
+                          ? ImageRenderMethodForWeb.HtmlImage
                           : ImageRenderMethodForWeb.HtmlImage,
                       errorWidget: (_, _, _) => _playerFallback(channel),
                     )

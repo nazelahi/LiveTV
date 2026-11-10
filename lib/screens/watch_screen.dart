@@ -22,6 +22,10 @@ import '../providers/player_provider.dart';
 import '../providers/playlist_providers.dart';
 import 'player_screen.dart';
 import '../core/screen_orientation.dart';
+import '../core/fullscreen_web_stub.dart'
+    if (dart.library.html) '../core/fullscreen_web.dart';
+import '../core/sync_url_stub.dart'
+    if (dart.library.html) '../core/sync_url_web.dart';
 
 /// Tracks whether a [WatchScreen] is currently on the navigation stack, so
 /// callers can update the existing player instead of pushing a duplicate.
@@ -45,6 +49,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   List<Channel> _related = const [];
   bool _pausedByLifecycle = false;
+  String? _initialChannelId;
   bool _handlingWideResize = false;
   bool? _openedWide;
   late final TabController _tabController = TabController(length: 2, vsync: this);
@@ -60,6 +65,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final index = widget.initialIndex.clamp(0, widget.queue.length - 1);
+      _initialChannelId = widget.queue[index].id;
       try {
         ref.read(playerProvider.notifier).play(
               widget.queue[index],
@@ -155,6 +161,15 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     isWatchScreenOpen = false;
     WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
+    // Closing the watch view without an explicit "close" action (browser back,
+    // window resize, route removal) must stop playback; otherwise audio keeps
+    // playing with no visible player on web.
+    final session = ref.read(playerProvider);
+    if (session != null &&
+        (_initialChannelId == null ||
+            session.channel.id == _initialChannelId)) {
+      unawaited(ref.read(playerProvider.notifier).close());
+    }
     lockPortrait();
     super.dispose();
   }
@@ -276,6 +291,9 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     ref.listen(playerProvider, (previous, next) {
       if (next != null && (previous?.channel.id != next.channel.id)) {
         _refreshRelated();
+      }
+      if (kIsWeb) {
+        syncPlaybackUrl(next?.channel.id);
       }
     });
 
@@ -417,13 +435,17 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                 onVolumeChanged: (v) => notifier.setVolume(v),
                                 onFullscreen: () async {
                                    if (kIsWeb) {
-                                     await Navigator.of(context).push(
+                                     await enterBrowserFullscreen();
+                                     if (!mounted) return;
+                                     final navigator = Navigator.of(context);
+                                     await navigator.push(
                                        MaterialPageRoute<void>(
                                          settings: const RouteSettings(name: 'player'),
                                          builder: (_) => const PlayerScreen(),
                                        ),
                                      );
                                      if (!mounted) return;
+                                     await exitBrowserFullscreen();
                                      await exitFullscreenUi();
                                      return;
                                    }
@@ -460,7 +482,7 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                         fit: BoxFit.cover,
                                         memCacheWidth: 96,
                                         imageRenderMethodForWeb: kIsWeb
-                                            ? ImageRenderMethodForWeb.HttpGet
+                                            ? ImageRenderMethodForWeb.HtmlImage
                                             : ImageRenderMethodForWeb.HtmlImage,
                                         errorWidget: (_, _, _) =>
                                             _channelFallback(session.channel),
@@ -752,7 +774,7 @@ class _RelatedTile extends StatelessWidget {
                             fit: BoxFit.cover,
                             memCacheWidth: 88,
                             imageRenderMethodForWeb: kIsWeb
-                                ? ImageRenderMethodForWeb.HttpGet
+                                ? ImageRenderMethodForWeb.HtmlImage
                                 : ImageRenderMethodForWeb.HtmlImage,
                             errorWidget: (_, _, _) => _fallback(channel),
                           )
@@ -903,7 +925,16 @@ class _EpgGuideTab extends ConsumerWidget {
     final key = channel.tvgId ?? channel.id;
     final programmes = data.programmesFor(key);
     if (programmes.isEmpty) {
-      return const Center(child: Text('No programmes available'));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'No guide data for this channel.\n'
+            'The published guide does not cover every channel.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
     }
 
     final now = DateTime.now();

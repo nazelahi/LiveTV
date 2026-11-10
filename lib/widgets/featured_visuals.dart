@@ -109,7 +109,7 @@ class ProgrammeBackdrop extends StatelessWidget {
         fit: BoxFit.cover,
         memCacheWidth: 640,
         imageRenderMethodForWeb: kIsWeb
-            ? ImageRenderMethodForWeb.HttpGet
+            ? ImageRenderMethodForWeb.HtmlImage
             : ImageRenderMethodForWeb.HtmlImage,
         fadeInDuration: const Duration(milliseconds: 180),
         placeholder: (_, _) => _fallback(),
@@ -154,7 +154,7 @@ class ProgrammeBackdrop extends StatelessWidget {
                 fit: BoxFit.contain,
                 memCacheWidth: 260,
                 imageRenderMethodForWeb: kIsWeb
-                    ? ImageRenderMethodForWeb.HttpGet
+                    ? ImageRenderMethodForWeb.HtmlImage
                     : ImageRenderMethodForWeb.HtmlImage,
                 placeholder: (_, _) => const SizedBox.shrink(),
                 errorWidget: (_, _, _) => _initial(),

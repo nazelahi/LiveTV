@@ -153,7 +153,7 @@ class _ChannelLogo extends StatelessWidget {
         fit: BoxFit.contain,
         memCacheWidth: 28,
         imageRenderMethodForWeb: kIsWeb
-            ? ImageRenderMethodForWeb.HttpGet
+            ? ImageRenderMethodForWeb.HtmlImage
             : ImageRenderMethodForWeb.HtmlImage,
         placeholder: (_, _) => const SizedBox.shrink(),
         errorWidget: (_, _, _) => const SizedBox.shrink(),

@@ -681,7 +681,7 @@ Future<void> _confirmAndDownloadEpg(
         ),
         title: const Text('Download TV guide?'),
         content: const Text(
-          'The guide file is about 69 MB and will be stored in your browser. '
+          'The guide file is about 30 MB and will be stored in your browser. '
           'This may take a while. Continue?',
         ),
         actions: [

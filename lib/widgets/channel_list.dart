@@ -221,7 +221,7 @@ class _TileLogo extends StatelessWidget {
                 fit: BoxFit.cover,
                 memCacheWidth: 80,
                 imageRenderMethodForWeb: kIsWeb
-                    ? ImageRenderMethodForWeb.HttpGet
+                    ? ImageRenderMethodForWeb.HtmlImage
                     : ImageRenderMethodForWeb.HtmlImage,
                 useOldImageOnUrlChange: true,
                 fadeInDuration: const Duration(milliseconds: 120),

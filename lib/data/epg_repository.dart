@@ -40,7 +40,9 @@ class EpgRepository {
       );
     }
 
-    final parsed = await compute(parseEpgBytes, response.bodyBytes);
+    final parsed = kIsWeb
+        ? await parseEpgChunked(response.bodyBytes)
+        : await compute(parseEpgBytes, response.bodyBytes);
 
     if (parsed.channelCount == 0) {
       throw const EpgException('The downloaded guide did not contain any programmes.');
