@@ -106,8 +106,32 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
         body: Stack(
         fit: StackFit.expand,
         children: [
-          MaterialVideoControlsTheme(
-            normal: MaterialVideoControlsThemeData(
+          MaterialDesktopVideoControlsTheme(
+            normal: MaterialDesktopVideoControlsThemeData(
+              displaySeekBar: false,
+              bottomButtonBar: [
+                const PlayerMuteButton(),
+                const SizedBox(width: 150, child: PlayerVolumeSlider()),
+              ],
+              primaryButtonBar: [
+                IconButton(
+                  tooltip: 'Previous channel',
+                  onPressed: hasNext ? () => ref.read(playerProvider.notifier).zap(-1) : null,
+                  icon: const Icon(Icons.skip_previous_rounded, color: Colors.white),
+                ),
+                const Spacer(),
+                const MaterialDesktopPlayOrPauseButton(iconSize: 48),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Next channel',
+                  onPressed: hasNext ? () => ref.read(playerProvider.notifier).zap(1) : null,
+                  icon: const Icon(Icons.skip_next_rounded, color: Colors.white),
+                ),
+              ],
+            ),
+            fullscreen: kDefaultMaterialDesktopVideoControlsThemeDataFullscreen,
+            child: MaterialVideoControlsTheme(
+              normal: MaterialVideoControlsThemeData(
               displaySeekBar: false,
               volumeGesture: true,
               brightnessGesture: false,
@@ -149,7 +173,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
               pauseUponEnteringBackgroundMode: false,
               resumeUponEnteringForegroundMode: false,
             ),
-          ),
+          ), // MaterialVideoControlsTheme
+          ), // MaterialDesktopVideoControlsTheme
           SafeArea(
             child: Column(
               children: [

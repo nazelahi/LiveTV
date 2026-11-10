@@ -405,8 +405,45 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      MaterialVideoControlsTheme(
-                        normal: MaterialVideoControlsThemeData(
+                      MaterialDesktopVideoControlsTheme(
+                        normal: MaterialDesktopVideoControlsThemeData(
+                          displaySeekBar: false,
+                          bottomButtonBar: [
+                            const PlayerMuteButton(),
+                            const SizedBox(width: 150, child: PlayerVolumeSlider()),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: 'Fullscreen',
+                              onPressed: _enterFullscreen,
+                              icon: const Icon(Icons.fullscreen_rounded,
+                                  color: Colors.white),
+                            ),
+                          ],
+                          primaryButtonBar: [
+                            IconButton(
+                              tooltip: 'Previous channel',
+                              onPressed: session.queue.length > 1
+                                  ? () => notifier.zap(-1)
+                                  : null,
+                              icon: const Icon(Icons.skip_previous_rounded,
+                                  color: Colors.white),
+                            ),
+                            const Spacer(),
+                            const MaterialDesktopPlayOrPauseButton(iconSize: 48),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: 'Next channel',
+                              onPressed: session.queue.length > 1
+                                  ? () => notifier.zap(1)
+                                  : null,
+                              icon: const Icon(Icons.skip_next_rounded,
+                                  color: Colors.white),
+                            ),
+                          ],
+                        ),
+                        fullscreen: kDefaultMaterialDesktopVideoControlsThemeDataFullscreen,
+                        child: MaterialVideoControlsTheme(
+                          normal: MaterialVideoControlsThemeData(
                           displaySeekBar: false,
                           volumeGesture: true,
                           brightnessGesture: false,
@@ -468,7 +505,8 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                           pauseUponEnteringBackgroundMode: false,
                           resumeUponEnteringForegroundMode: false,
                         ),
-                      ),
+                      ), // MaterialVideoControlsTheme
+                      ), // MaterialDesktopVideoControlsTheme
                       if (session.error != null &&
                           session.autoSkipRemaining != null)
                         Positioned(
