@@ -11,6 +11,8 @@ import '../core/app_theme.dart';
 import '../core/constants.dart';
 import '../core/open_url.dart';
 import '../core/screen_orientation.dart';
+import '../core/fullscreen_web_stub.dart'
+    if (dart.library.html) '../core/fullscreen_web.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_providers.dart';
 import '../widgets/glass.dart';
@@ -28,11 +30,13 @@ class PlayerScreen extends ConsumerStatefulWidget {
 class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBindingObserver {
   bool _exiting = false;
   bool _pausedByLifecycle = false;
+  void Function()? _fullscreenCancel;
 
   Future<void> _exit() async {
     if (_exiting) return;
     _exiting = true;
     await exitFullscreenUi();
+    if (kIsWeb) await exitBrowserFullscreen();
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -43,6 +47,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
 
     WidgetsBinding.instance.addObserver(this);
     enterFullscreenUi();
+    if (kIsWeb) {
+      enterBrowserFullscreen().ignore();
+      _fullscreenCancel = listenFullscreenChange(() {
+        if (!mounted || _exiting) return;
+        _exit();
+      });
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -54,8 +65,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
 
   @override
   void dispose() {
+    _fullscreenCancel?.call();
+    _fullscreenCancel = null;
     WidgetsBinding.instance.removeObserver(this);
     exitFullscreenUi();
+    if (kIsWeb) exitBrowserFullscreen().ignore();
     super.dispose();
   }
 
