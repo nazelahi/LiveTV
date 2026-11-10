@@ -15,6 +15,7 @@ import '../providers/player_provider.dart';
 import '../providers/playlist_providers.dart';
 import '../widgets/glass.dart';
 import '../widgets/quality_button.dart';
+import '../widgets/player_volume_controls.dart';
 import '../data/models/channel.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -105,91 +106,75 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
         body: Stack(
         fit: StackFit.expand,
         children: [
-          Video(
-            controller: session.controller,
-            controls: NoVideoControls,
-            fit: BoxFit.contain,
-            wakelock: false,
-             pauseUponEnteringBackgroundMode: false,
-             resumeUponEnteringForegroundMode: false,
-          ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => ref.read(playerProvider.notifier).toggleControls(),
-            onDoubleTap: () => ref.read(playerProvider.notifier).togglePlay(),
-          ),
-          if (session.buffering && session.error == null)
-            const Center(
-              child: SizedBox(
-                width: 38,
-                height: 38,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: AppTheme.accent,
+          MaterialVideoControlsTheme(
+            normal: MaterialVideoControlsThemeData(
+              displaySeekBar: false,
+              volumeGesture: true,
+              brightnessGesture: false,
+              seekGesture: false,
+              seekOnDoubleTap: false,
+              visibleOnMount: false,
+              controlsHoverDuration: const Duration(seconds: 3),
+              controlsTransitionDuration: const Duration(milliseconds: 300),
+              backdropColor: const Color(0x66000000),
+              topButtonBar: const [],
+              primaryButtonBar: [
+                IconButton(
+                  tooltip: 'Previous channel',
+                  onPressed: hasNext ? () => ref.read(playerProvider.notifier).zap(-1) : null,
+                  icon: const Icon(Icons.skip_previous_rounded, color: Colors.white),
                 ),
-              ),
+                const Spacer(),
+                MaterialPlayOrPauseButton(iconSize: 48),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Next channel',
+                  onPressed: hasNext ? () => ref.read(playerProvider.notifier).zap(1) : null,
+                  icon: const Icon(Icons.skip_next_rounded, color: Colors.white),
+                ),
+              ],
+              bottomButtonBar: [
+                const PlayerMuteButton(),
+                SizedBox(width: 150, child: PlayerVolumeSlider()),
+              ],
+              onVolumeChanged: (v) => ref.read(playerProvider.notifier).setVolume(v * 100),
+              initialVolume: (session.volume / 100).clamp(0.0, 1.0),
             ),
-          AnimatedOpacity(
-            opacity: session.controlsVisible ? 1 : 0,
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 200),
-            child: IgnorePointer(
-              ignoring: !session.controlsVisible,
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.28),
-              ),
+            fullscreen: kDefaultMaterialVideoControlsThemeDataFullscreen,
+            child: Video(
+              controller: session.controller,
+              controls: AdaptiveVideoControls,
+              fit: BoxFit.cover,
+              wakelock: false,
+              pauseUponEnteringBackgroundMode: false,
+              resumeUponEnteringForegroundMode: false,
             ),
           ),
-          AnimatedOpacity(
-            opacity: session.controlsVisible ? 1 : 0,
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 200),
-            child: IgnorePointer(
-              ignoring: !session.controlsVisible,
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    _TopBar(
-                      channel: channel,
-                      player: session.player,
-                      isFavorite: ref
-                          .watch(favoritesProvider)
-                          .contains(channel.id),
-                      onBack: () => _exit(),
-                      onFavorite: () => ref
-                          .read(favoritesProvider.notifier)
-                          .toggle(channel.id),
-                      onRetry: () => ref.read(playerProvider.notifier).retry(),
-                      error: session.error,
-                      onError: session.error == null
-                          ? null
-                          : () => _showErrorDialog(
-                                channel,
-                                session.error!,
-                                session.queue.length > 1,
-                              ),
-                    ),
-                    const Spacer(),
-                    _BottomBar(
-                      channel: channel,
-                      playing: session.playing,
-                      muted: session.muted,
-                      hasNext: hasNext,
-                      position: session.index + 1,
-                      total: session.queue.length,
-                      onPrevious: () =>
-                          ref.read(playerProvider.notifier).zap(-1),
-                      onNext: () => ref.read(playerProvider.notifier).zap(1),
-                      onPlayPause: () =>
-                          ref.read(playerProvider.notifier).togglePlay(),
-                      onMute: () => ref.read(playerProvider.notifier).toggleMute(),
-                      onRetry: () => ref.read(playerProvider.notifier).retry(),
-                    ),
-                  ],
+          SafeArea(
+            child: Column(
+              children: [
+                _TopBar(
+                  channel: channel,
+                  player: session.player,
+                  isFavorite: ref
+                      .watch(favoritesProvider)
+                      .contains(channel.id),
+                  onBack: () => _exit(),
+                  onFavorite: () => ref
+                      .read(favoritesProvider.notifier)
+                      .toggle(channel.id),
+                  onRetry: () => ref.read(playerProvider.notifier).retry(),
+                  error: session.error,
+                  onError: session.error == null
+                      ? null
+                      : () => _showErrorDialog(
+                            channel,
+                            session.error!,
+                            session.queue.length > 1,
+                          ),
                 ),
-              ),
+                const Spacer(),
+              ],
             ),
           ),
           if (session.error != null && session.autoSkipRemaining != null)
@@ -406,156 +391,6 @@ class _TopBar extends StatelessWidget {
     );
   }
 }
-
-class _BottomBar extends StatelessWidget {
-  const _BottomBar({
-    required this.channel,
-    required this.playing,
-    required this.muted,
-    required this.hasNext,
-    required this.position,
-    required this.total,
-    required this.onPrevious,
-    required this.onNext,
-    required this.onPlayPause,
-    required this.onMute,
-    required this.onRetry,
-  });
-
-  final Channel channel;
-  final bool playing;
-  final bool muted;
-  final bool hasNext;
-  final int position;
-  final int total;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
-  final VoidCallback onPlayPause;
-  final VoidCallback onMute;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassContainer(
-      blur: 16,
-      color: Colors.black.withValues(alpha: 0.4),
-      borderRadius: BorderRadius.circular(14),
-      margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Previous channel',
-            onPressed: hasNext ? onPrevious : null,
-            icon: const Icon(Icons.skip_previous_rounded),
-          ),
-          IconButton.filled(
-            tooltip: playing ? 'Pause' : 'Play',
-            onPressed: onPlayPause,
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.accent,
-              foregroundColor: Colors.black,
-              minimumSize: const Size(44, 44),
-            ),
-            icon: Icon(
-              playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              size: 28,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Next channel',
-            onPressed: hasNext ? onNext : null,
-            icon: const Icon(Icons.skip_next_rounded),
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            tooltip: muted ? 'Unmute' : 'Mute',
-            onPressed: onMute,
-            icon: Icon(
-              muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.danger.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _LiveDot(),
-                          SizedBox(width: 5),
-                          Text(
-                            'LIVE',
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                              color: AppTheme.danger,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        channel.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  hasNext ? '$position of $total in this list' : channel.group,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LiveDot extends StatelessWidget {
-  const _LiveDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: const BoxDecoration(
-        color: AppTheme.danger,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-}
-
 
 Widget _playerFallback(Channel channel) {
   final initial = channel.name.trim().isEmpty

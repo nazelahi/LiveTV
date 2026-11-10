@@ -54,6 +54,11 @@ class AppConfig {
 
   static const String adultGroup = 'Adult';
 
+  /// Public HTTPS proxy used to relay plain http:// streams on the web build.
+  /// Empty disables proxying (falls back to the "Open stream" prompt).
+  /// The proxy must accept the target URL appended to this base (URL-encoded).
+  static const String webStreamProxyBase = 'https://corsproxy.io/?';
+
   /// A cached playlist older than this is refreshed in the background.
   static const Duration staleAfter = Duration(minutes: 15);
 

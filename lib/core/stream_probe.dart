@@ -21,7 +21,7 @@ Future<bool> probeStream(
   Map<String, String>? headers,
 }) async {
   final source = parseStreamSource(url);
-  final targetUrl = source.url;
+  final targetUrl = proxiedStreamUrl(source.url);
 
   Uri uri;
   try {

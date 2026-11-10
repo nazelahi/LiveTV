@@ -324,12 +324,14 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     if (current == null) return;
 
     // On the web build (hosted over https), plain http:// streams are blocked
-    // by the browser as mixed content. Detect this up front and surface a clear
-    // message instead of letting the player hang on a blocked request.
+    // by the browser as mixed content. When a public HTTPS proxy is configured
+    // (AppConfig.webStreamProxyBase) we relay them through it; otherwise
+    // surface a clear message instead of letting the player hang.
     if (kIsWeb) {
       final src = parseStreamSource(current.channel.url);
       if (src.url.toLowerCase().startsWith('http://') &&
-          Uri.base.scheme == 'https') {
+          Uri.base.scheme == 'https' &&
+          AppConfig.webStreamProxyBase.isEmpty) {
         _failCurrent(
           'This stream uses http:// and cannot play inside the secure (https) '
           'website. Use "Open stream" to play it in an external '
@@ -362,7 +364,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
       if (source.headers != null) ...source.headers!,
     };
     final media = Media(
-      source.url,
+      proxiedStreamUrl(source.url),
       httpHeaders: headers,
     );
 

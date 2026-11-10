@@ -7,9 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
-
 import '../widgets/quality_button.dart';
+import '../widgets/player_volume_controls.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -94,6 +93,31 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         .toList(growable: false);
     if (!mounted) return;
     setState(() => _related = related);
+  }
+
+  Future<void> _enterFullscreen() async {
+    if (kIsWeb) {
+      await enterBrowserFullscreen();
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'player'),
+          builder: (_) => const PlayerScreen(),
+        ),
+      );
+      if (!mounted) return;
+      await exitBrowserFullscreen();
+      await exitFullscreenUi();
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'player'),
+        builder: (_) => const PlayerScreen(),
+      ),
+    );
+    if (!mounted) return;
+    await exitFullscreenUi();
   }
 
   Future<void> _close() async {
@@ -381,89 +405,89 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                          Video(
-                            controller: session.controller,
-                            controls: NoVideoControls,
-                            fit: BoxFit.contain,
-                            wakelock: false,
-                             pauseUponEnteringBackgroundMode: false,
-                             resumeUponEnteringForegroundMode: false,
-                          ),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => notifier.toggleControls(),
-                            onDoubleTap: () => notifier.togglePlay(),
-                          ),
-                          if (session.buffering && session.error == null)
-                            const Center(
-                              child: SizedBox(
-                                width: 34,
-                                height: 34,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 3,
-                                  color: AppTheme.accent,
-                                ),
-                              ),
+                      MaterialVideoControlsTheme(
+                        normal: MaterialVideoControlsThemeData(
+                          displaySeekBar: false,
+                          volumeGesture: true,
+                          brightnessGesture: false,
+                          seekGesture: false,
+                          seekOnDoubleTap: false,
+                          visibleOnMount: false,
+                          controlsHoverDuration: const Duration(seconds: 3),
+                          controlsTransitionDuration:
+                              const Duration(milliseconds: 300),
+                          backdropColor: const Color(0x66000000),
+                          topButtonBar: [
+                            IconTheme(
+                              data: const IconThemeData(color: Colors.white),
+                              child: QualityButton(player: session.player),
                             ),
-                          if (session.error != null && session.autoSkipRemaining != null)
-                            Positioned(
-                              bottom: 8,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: Text(
-                                  'Skipping in ${session.autoSkipRemaining}s',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ),
+                          ],
+                          primaryButtonBar: [
+                            IconButton(
+                              tooltip: 'Previous channel',
+                              onPressed: session.queue.length > 1
+                                  ? () => notifier.zap(-1)
+                                  : null,
+                              icon: const Icon(Icons.skip_previous_rounded,
+                                  color: Colors.white),
                             ),
-                          if (session.controlsVisible)
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: _WatchControls(
-                                player: session.player,
-                                playing: session.playing,
-                                muted: session.muted,
-                                volume: session.volume,
-                                onPlayPause: () => notifier.togglePlay(),
-                                onMute: () => notifier.toggleMute(),
-                                onVolumeChanged: (v) => notifier.setVolume(v),
-                                onFullscreen: () async {
-                                   if (kIsWeb) {
-                                     await enterBrowserFullscreen();
-                                     if (!mounted) return;
-                                     final navigator = Navigator.of(context);
-                                     await navigator.push(
-                                       MaterialPageRoute<void>(
-                                         settings: const RouteSettings(name: 'player'),
-                                         builder: (_) => const PlayerScreen(),
-                                       ),
-                                     );
-                                     if (!mounted) return;
-                                     await exitBrowserFullscreen();
-                                     await exitFullscreenUi();
-                                     return;
-                                   }
-                                   await Navigator.of(context).push(
-                                     MaterialPageRoute<void>(
-                                       settings: const RouteSettings(name: 'player'),
-                                       builder: (_) => const PlayerScreen(),
-                                     ),
-                                   );
-                                   if (!mounted) return;
-                                   await exitFullscreenUi();
-                                 },
-                              ),
+                            const Spacer(),
+                            MaterialPlayOrPauseButton(iconSize: 48),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: 'Next channel',
+                              onPressed: session.queue.length > 1
+                                  ? () => notifier.zap(1)
+                                  : null,
+                              icon: const Icon(Icons.skip_next_rounded,
+                                  color: Colors.white),
                             ),
-                        ],
+                          ],
+                          bottomButtonBar: [
+                            const PlayerMuteButton(),
+                            SizedBox(width: 150, child: PlayerVolumeSlider()),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: 'Fullscreen',
+                              onPressed: _enterFullscreen,
+                              icon: const Icon(Icons.fullscreen_rounded,
+                                  color: Colors.white),
+                            ),
+                          ],
+                          onVolumeChanged: (v) => notifier.setVolume(v * 100),
+                          initialVolume:
+                              (session.volume / 100).clamp(0.0, 1.0),
+                        ),
+                        fullscreen: kDefaultMaterialVideoControlsThemeDataFullscreen,
+                        child: Video(
+                          controller: session.controller,
+                          controls: AdaptiveVideoControls,
+                          fit: BoxFit.contain,
+                          wakelock: false,
+                          pauseUponEnteringBackgroundMode: false,
+                          resumeUponEnteringForegroundMode: false,
+                        ),
                       ),
-                    ),
-
+                      if (session.error != null &&
+                          session.autoSkipRemaining != null)
+                        Positioned(
+                          bottom: 8,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Text(
+                              'Skipping in ${session.autoSkipRemaining}s',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: Column(
                     children: [
@@ -660,90 +684,6 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
           ),
           ),
         );
-  }
-}
-
-class _WatchControls extends StatelessWidget {
-  const _WatchControls({
-    required this.player,
-    required this.playing,
-    required this.muted,
-    required this.volume,
-    required this.onPlayPause,
-    required this.onMute,
-    required this.onVolumeChanged,
-    required this.onFullscreen,
-  });
-
-  final Player player;
-  final bool playing;
-  final bool muted;
-  final double volume;
-  final VoidCallback onPlayPause;
-  final VoidCallback onMute;
-  final ValueChanged<double> onVolumeChanged;
-  final VoidCallback onFullscreen;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.45),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                tooltip: playing ? 'Pause' : 'Play',
-            onPressed: onPlayPause,
-            icon: Icon(
-              playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              color: Colors.white,
-            ),
-          ),
-          IconButton(
-            tooltip: muted ? 'Unmute' : 'Mute',
-            onPressed: onMute,
-            icon: Icon(
-              muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-              color: Colors.white,
-            ),
-          ),
-          IconTheme(
-            data: const IconThemeData(color: Colors.white),
-            child: QualityButton(player: player),
-          ),
-          IconButton(
-            tooltip: 'Fullscreen',
-            onPressed: onFullscreen,
-            icon: const Icon(Icons.fullscreen_rounded, color: Colors.white),
-          ),
-          const Spacer(),
-        ],
-      ),
-      Row(
-        children: [
-          Icon(
-            muted || volume == 0
-                ? Icons.volume_off_rounded
-                : Icons.volume_up_rounded,
-            size: 16,
-            color: Colors.white70,
-          ),
-          Expanded(
-            child: Slider(
-              value: volume,
-              min: 0,
-              max: 100,
-              onChanged: onVolumeChanged,
-            ),
-          ),
-        ],
-      ),
-        ],
-      ),
-    );
   }
 }
 

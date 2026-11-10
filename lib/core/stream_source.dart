@@ -1,5 +1,9 @@
 export 'playback_errors.dart';
 
+import 'package:flutter/foundation.dart';
+
+import 'constants.dart';
+
 /// A playable stream URL with any IPTV `|header=value&...` options split out.
 class StreamSource {
   const StreamSource({required this.url, this.headers});
@@ -33,4 +37,14 @@ StreamSource parseStreamSource(String raw) {
   }
 
   return StreamSource(url: url, headers: headers.isEmpty ? null : headers);
+}
+
+/// Rewrites a plain http:// stream URL to go through the configured HTTPS proxy
+/// when running on the web over https. Returns the original URL otherwise.
+String proxiedStreamUrl(String url) {
+  if (!kIsWeb) return url;
+  if (Uri.base.scheme != 'https') return url;
+  if (!url.toLowerCase().startsWith('http://')) return url;
+  if (AppConfig.webStreamProxyBase.isEmpty) return url;
+  return '${AppConfig.webStreamProxyBase}${Uri.encodeComponent(url)}';
 }
