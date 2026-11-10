@@ -34,6 +34,7 @@ class PlayerSession {
     this.autoSkipRemaining,
     this.failedIds = const {},
     this.fullscreen = false,
+    this.needsUserGesture = false,
   });
 
   final Player player;
@@ -52,6 +53,7 @@ class PlayerSession {
   final int? autoSkipRemaining;
   final Set<String> failedIds;
   final bool fullscreen;
+  final bool needsUserGesture;
 
   Channel get currentChannel => channel;
 
@@ -72,6 +74,7 @@ class PlayerSession {
     bool clearAutoSkip = false,
     Set<String>? failedIds,
     bool? fullscreen,
+    bool? needsUserGesture,
   }) {
     return PlayerSession(
       player: player ?? this.player,
@@ -89,6 +92,7 @@ class PlayerSession {
           clearAutoSkip ? null : (autoSkipRemaining ?? this.autoSkipRemaining),
       failedIds: failedIds ?? this.failedIds,
       fullscreen: fullscreen ?? this.fullscreen,
+      needsUserGesture: needsUserGesture ?? this.needsUserGesture,
     );
   }
 }
@@ -111,6 +115,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
   Timer? _hideTimer;
   Timer? _healthTimer;
   Timer? _autoSkipTimer;
+  Timer? _userGestureTimer;
   int _reconnectAttempts = 0;
   DateTime? _lastReconnectAt;
   bool _isOpening = false;
@@ -370,11 +375,9 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
 
     _isOpening = true;
     try {
-      // Stop any previously playing media first so switching channels does not
-      // leave the old stream's audio running in the background.
-      try {
-        await current.player.stop();
-      } catch (_) {}
+      // media_kit's open() already stops the previous media internally.
+      // Calling stop() separately on web resets the video element and races
+      // with the new open(), which can prevent autoplay on channel switches.
       await current.player.open(media, play: autoplay);
       _restartHideTimer();
     } catch (error) {
@@ -426,7 +429,6 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     state = current.copyWith(buffering: true, error: null, clearError: true);
 
     try {
-      await current.player.stop();
       if (state == null) return;
       await _openCurrent();
     } catch (error) {
@@ -508,11 +510,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     _reconnectAttempts = 0;
     final current = state;
     if (current == null) return;
-    try {
-      await current.player.stop();
-    } catch (_) {
-      // Ignore.
-    }
+    // media_kit's open() stops the previous media internally.
     if (state == null) return;
     await _openCurrent();
   }
@@ -524,6 +522,20 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
       _health?.expectPlayback(DateTime.now());
     }
     await current.player.playOrPause();
+  }
+
+  /// Clears the "tap to play" prompt and starts playback from a user gesture.
+  Future<void> playFromUserGesture() async {
+    final current = state;
+    if (current == null) return;
+    _userGestureTimer?.cancel();
+    _userGestureTimer = null;
+    try {
+      state = current.copyWith(needsUserGesture: false);
+    } catch (_) {}
+    try {
+      await current.player.play();
+    } catch (_) {}
   }
 
   Future<void> setVolume(double volume) async {

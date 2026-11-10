@@ -218,6 +218,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
                 ),
               ),
             ),
+          if (session.needsUserGesture)
+            Positioned.fill(
+              child: Center(
+                child: FilledButton.icon(
+                  onPressed: () =>
+                      ref.read(playerProvider.notifier).playFromUserGesture(),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Tap to play'),
+                ),
+              ),
+            ),
         ],
       ),
       ),
