@@ -36,6 +36,9 @@ class PlayerVolumeSlider extends ConsumerWidget {
       value: volume.clamp(0.0, 100.0),
       min: 0,
       max: 100,
+      activeColor: Colors.white,
+      inactiveColor: Colors.white24,
+      thumbColor: Colors.white,
       onChanged: (v) => ref.read(playerProvider.notifier).setVolume(v),
     );
   }
