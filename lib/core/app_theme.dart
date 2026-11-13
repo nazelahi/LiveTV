@@ -3,26 +3,35 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  static const Color background = Color(0xFF002B36);
-  static const Color backgroundAlt = Color(0xFF073642);
-  static const Color surface = Color(0x1A93A1A1);
-  static const Color surfaceHigh = Color(0x2693A1A1);
-  static const Color accent = Color(0xFF268BD2);
-  static const Color accentSecondary = Color(0xFF2AA198);
-  static const Color danger = Color(0xFFDC322F);
+  static const Color background = Color(0xFF050506);
+  static const Color backgroundAlt = Color(0xFF141416);
+  static const Color surface = Color(0x1AFFFFFF);
+  static const Color surfaceHigh = Color(0x26FFFFFF);
 
-  static const Color textPrimary = Color(0xFF93A1A1);
-  static const Color textSecondary = Color(0xFF839496);
-  static const Color textMuted = Color(0xFF7A8F94);
+  /// Bright red used for icons, links, selection and accent text on dark.
+  static const Color accent = Color(0xFFF5101F);
+
+  /// Darker red used behind white labels on filled surfaces.
+  static const Color accentFill = Color(0xFFC62828);
+
+  static const Color accentSecondary = Color(0xFFE5484D);
+  static const Color danger = Color(0xFFFF9100);
+
+  /// Label color placed on bright accent fills (buttons, badges).
+  static const Color onAccent = Color(0xFF200003);
+
+  static const Color textPrimary = Color(0xFFF2F2F2);
+  static const Color textSecondary = Color(0xFFB3B3B6);
+  static const Color textMuted = Color(0xFF8A8A8F);
 
   static const LinearGradient backgroundGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF002B36),
-      Color(0xFF073642),
-      Color(0xFF0A4A5C),
-      Color(0xFF073642),
+      Color(0xFF000000),
+      Color(0xFF120608),
+      Color(0xFF1A090C),
+      Color(0xFF0A0A0B),
     ],
     stops: [0.0, 0.35, 0.7, 1.0],
   );
@@ -30,7 +39,7 @@ class AppTheme {
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF268BD2), Color(0xFF2AA198)],
+    colors: [Color(0xFFF5101F), Color(0xFF8E1118)],
   );
 
   static ThemeData get dark {
@@ -38,11 +47,23 @@ class AppTheme {
       seedColor: accent,
       brightness: Brightness.dark,
     ).copyWith(
-      surface: const Color(0x1A93A1A1),
       primary: accent,
+      onPrimary: onAccent,
+      primaryContainer: const Color(0xFF7A0E14),
+      onPrimaryContainer: const Color(0xFFFFD9D9),
       secondary: accentSecondary,
+      onSecondary: const Color(0xFF2B0507),
+      secondaryContainer: const Color(0xFF3A0A0D),
+      onSecondaryContainer: const Color(0xFFFFD9D9),
       error: danger,
+      onError: const Color(0xFF2A1500),
+      errorContainer: const Color(0xFF4A2800),
+      onErrorContainer: const Color(0xFFFFE0B8),
+      surface: backgroundAlt,
       onSurface: textPrimary,
+      surfaceContainerHighest: backgroundAlt,
+      outline: const Color(0xFF5C5C63),
+      outlineVariant: const Color(0xFF2A2A2E),
     );
 
     return ThemeData(
@@ -65,7 +86,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0x1A93A1A1),
+        fillColor: surface,
         hintStyle: TextStyle(color: textMuted),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -83,7 +104,7 @@ class AppTheme {
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: const Color(0x1A93A1A1),
+        backgroundColor: surface,
         selectedColor: accent.withValues(alpha: 0.22),
         side: BorderSide(color: textMuted.withValues(alpha: 0.4)),
         shape: RoundedRectangleBorder(

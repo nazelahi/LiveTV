@@ -38,6 +38,14 @@ class Programme {
   String toString() => 'Programme($title, $start–$stop)';
 }
 
+/// Programmes that have not finished at [now], so a guide opens on what is
+/// currently airing instead of scrolling from the start of the day.
+List<Programme> upcomingProgrammes(List<Programme> programmes, DateTime now) {
+  return programmes
+      .where((programme) => programme.stop.isAfter(now))
+      .toList(growable: false);
+}
+
 /// Parsed XMLTV guide.
 class EpgData {
   const EpgData({

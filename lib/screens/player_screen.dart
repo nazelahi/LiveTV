@@ -11,6 +11,7 @@ import '../core/app_theme.dart';
 import '../core/constants.dart';
 import '../core/open_url.dart';
 import '../core/screen_orientation.dart';
+import '../core/fullscreen_decision.dart';
 import '../core/fullscreen_web_stub.dart'
     if (dart.library.html) '../core/fullscreen_web.dart';
 import '../providers/player_provider.dart';
@@ -50,7 +51,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
     if (kIsWeb) {
       enterBrowserFullscreen().ignore();
       _fullscreenCancel = listenFullscreenChange(() {
-        if (!mounted || _exiting) return;
+        if (!mounted) return;
+        // The same event fires when fullscreen is entered; only close the
+        // player when fullscreen actually ended (e.g. the user pressed Esc).
+        if (!shouldExitOnFullscreenChange(
+          isFullscreen: isBrowserFullscreen(),
+          alreadyExiting: _exiting,
+        )) {
+          return;
+        }
         _exit();
       });
     }

@@ -65,7 +65,7 @@ class _DeepLinkWatchScreenState extends ConsumerState<DeepLinkWatchScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('LiveTV'),
         leading: IconButton(
@@ -73,8 +73,10 @@ class _DeepLinkWatchScreenState extends ConsumerState<DeepLinkWatchScreen> {
           onPressed: () => Navigator.of(context).maybePop(),
         ),
       ),
-      body: Center(
-        child: playlist.when(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+        child: Center(
+          child: playlist.when(
           loading: () => const CircularProgressIndicator(),
           error: (e, _) => Text(
             'Failed to load playlist: $e',
@@ -88,6 +90,7 @@ class _DeepLinkWatchScreenState extends ConsumerState<DeepLinkWatchScreen> {
             );
           },
         ),
+      ),
       ),
     );
   }

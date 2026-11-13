@@ -11,8 +11,8 @@ import '../data/models/epg.dart';
 Color featuredKindColor(FeaturedKind kind) => switch (kind) {
       FeaturedKind.movie => AppTheme.accent,
       FeaturedKind.sport => AppTheme.accentSecondary,
-      FeaturedKind.news => const Color(0xFFCB4B16),
-      FeaturedKind.show => const Color(0xFF6C71C4),
+      FeaturedKind.news => AppTheme.danger,
+      FeaturedKind.show => const Color(0xFFC0848C),
     };
 
 IconData featuredKindIcon(FeaturedKind kind) => switch (kind) {
@@ -245,12 +245,12 @@ class FeaturedStatusChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 9,
           height: 1.1,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.3,
-          color: Colors.white,
+          color: live ? AppTheme.onAccent : Colors.white,
         ),
       ),
     );
@@ -278,7 +278,7 @@ class FeaturedKindBadge extends StatelessWidget {
           height: 1.1,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.6,
-          color: Colors.white,
+          color: AppTheme.onAccent,
         ),
       ),
     );

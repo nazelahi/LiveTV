@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../widgets/player_status_overlay.dart';
 import '../widgets/quality_button.dart';
 import '../widgets/player_volume_controls.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -16,10 +17,12 @@ import '../core/app_theme.dart';
 import '../core/open_url.dart';
 import '../core/constants.dart';
 import '../data/models/channel.dart';
+import '../data/models/epg.dart';
 import '../providers/epg_providers.dart';
 import '../providers/player_provider.dart';
 import '../providers/playlist_providers.dart';
 import 'player_screen.dart';
+import 'settings_screen.dart';
 import '../core/screen_orientation.dart';
 import '../core/fullscreen_web_stub.dart'
     if (dart.library.html) '../core/fullscreen_web.dart';
@@ -125,61 +128,6 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     if (mounted) Navigator.of(context).pop();
   }
 
-  void _showErrorDialog(Channel channel, String message, bool hasNext) {
-    final detail = message.length > AppConfig.maxErrorMessageLength
-        ? '${message.substring(0, AppConfig.maxErrorMessageLength)}…'
-        : message;
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.backgroundAlt,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
-        ),
-        title: Text('${channel.name} is not responding'),
-        content: Text(detail),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ref.read(playerProvider.notifier).retry();
-            },
-            child: const Text('Retry'),
-          ),
-          if (hasNext)
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                ref.read(playerProvider.notifier).zap(1);
-              },
-              child: const Text('Next channel'),
-            ),
-          if (kIsWeb)
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                openUrlInNewTab(channel.url);
-              },
-              child: const Text('Open stream'),
-            ),
-          if (kIsWeb)
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                openUrlInNewTab('vlc://${channel.url}');
-              },
-              child: const Text('Open in VLC'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   void dispose() {
     isWatchScreenOpen = false;
@@ -265,47 +213,6 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     });
   }
 
-  Widget _buildRelatedSidebar() {
-    final notifier = ref.read(playerProvider.notifier);
-    return Container(
-      color: AppTheme.backgroundAlt.withValues(alpha: 0.5),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text(
-              'Up next',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-          ),
-          Expanded(
-            child: _related.isEmpty
-                ? const Center(child: Text('No related channels'))
-                : ListView.builder(
-                    itemCount: _related.length,
-                    itemBuilder: (context, index) {
-                      final channel = _related[index];
-                      return _RelatedTile(
-                        channel: channel,
-                        onTap: () {
-                          final i =
-                              widget.queue.indexWhere((c) => c.id == channel.id);
-                          if (i >= 0) {
-                            notifier.play(channel, widget.queue, i);
-                          } else {
-                            notifier.play(channel, [channel], 0);
-                          }
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(playerProvider);
@@ -333,6 +240,9 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
         autofocus: kIsWeb,
         onKeyEvent: (node, event) {
           if (!kIsWeb || event is! KeyDownEvent) return KeyEventResult.ignored;
+          if (ModalRoute.of(context)?.isCurrent != true) return KeyEventResult.ignored;
+          final session = ref.read(playerProvider);
+          if (session == null) return KeyEventResult.ignored;
           final notifier = ref.read(playerProvider.notifier);
           switch (event.logicalKey) {
             case LogicalKeyboardKey.space:
@@ -341,11 +251,22 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
             case LogicalKeyboardKey.keyM:
               notifier.toggleMute();
               return KeyEventResult.handled;
+            case LogicalKeyboardKey.arrowLeft:
+              if (session.queue.length > 1) notifier.zap(-1);
+              return KeyEventResult.handled;
+            case LogicalKeyboardKey.arrowRight:
+              if (session.queue.length > 1) notifier.zap(1);
+              return KeyEventResult.handled;
+            case LogicalKeyboardKey.keyF:
+              _enterFullscreen();
+              return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
         },
-        child: Scaffold(
-          backgroundColor: AppTheme.background,
+        child: Container(
+          decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -356,16 +277,6 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         actions: [
-          if (session?.error != null)
-            IconButton(
-              tooltip: 'Stream error',
-              onPressed: () => _showErrorDialog(
-                channel!,
-                session!.error!,
-                (session.queue.length > 1),
-              ),
-              icon: const Icon(Icons.error_outline_rounded, color: AppTheme.danger),
-            ),
           if (channel != null)
             IconButton(
               tooltip: 'Reload stream',
@@ -397,7 +308,6 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(
               builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 900;
                 final content = Column(
               children: [
                 AspectRatio(
@@ -520,6 +430,33 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                 fontSize: 11,
                                 color: Colors.white70,
                               ),
+                            ),
+                          ),
+                        ),
+                      if (session.error != null)
+                        Positioned.fill(
+                          child: PlayerStatusOverlay(
+                            channelName: session.channel.name,
+                            error: session.error,
+                            onRetry: notifier.retry,
+                            onNext: session.queue.length > 1
+                                ? () => notifier.zap(1)
+                                : null,
+                            onOpenStream: kIsWeb
+                                ? () => openUrlInNewTab(session.channel.url)
+                                : null,
+                            onOpenVlc: kIsWeb
+                                ? () => openUrlInNewTab('vlc://${session.channel.url}')
+                                : null,
+                          ),
+                        )
+                      else if (session.buffering &&
+                          !session.playing &&
+                          !session.needsUserGesture)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: PlayerStatusOverlay(
+                              channelName: session.channel.name,
                             ),
                           ),
                         ),
@@ -650,6 +587,70 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                           ],
                         ),
                       ),
+                      if (session.queue.length > 1)
+                        SizedBox(
+                          height: 76,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                            itemCount: session.queue.length,
+                            separatorBuilder: (_, _) => const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final ch = session.queue[index];
+                              final isCurrent = ch.id == session.channel.id;
+                              return InkWell(
+                                onTap: () => notifier.play(ch, session.queue, index),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  width: 120,
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.backgroundAlt.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isCurrent
+                                          ? AppTheme.accent
+                                          : AppTheme.textMuted.withValues(alpha: 0.2),
+                                      width: isCurrent ? 1.5 : 1,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: ch.hasLogo
+                                            ? CachedNetworkImage(
+                                                imageUrl: ch.logo!,
+                                                fit: BoxFit.contain,
+                                                errorWidget: (_, _, _) =>
+                                                    _channelFallback(ch),
+                                              )
+                                            : _channelFallback(ch),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        ch.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: isCurrent
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                          color: isCurrent
+                                              ? AppTheme.accent
+                                              : AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       TabBar(
                         controller: _tabController,
                         tabs: const [
@@ -681,8 +682,23 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                           children: [
                             // Related
                             _related.isEmpty
-                                ? const Center(
-                                    child: Text('No related channels found.'),
+                                ? Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.live_tv_rounded,
+                                            size: 32, color: AppTheme.textMuted),
+                                        const SizedBox(height: 8),
+                                        Text('No related channels',
+                                            style: TextStyle(
+                                                color: AppTheme.textSecondary)),
+                                        const SizedBox(height: 2),
+                                        Text('Try browsing another category.',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.textMuted)),
+                                      ],
+                                    ),
                                   )
                                 : ListView.builder(
                                     padding: const EdgeInsets.fromLTRB(
@@ -722,18 +738,14 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                 ),
               ],
                 );
-                if (!wide) return content;
-                return Row(
-                  children: [
-                    Expanded(flex: 3, child: content),
-                    Expanded(flex: 2, child: _buildRelatedSidebar()),
-                  ],
-                );
+                // Single cinematic column at every width; the tabs' content scrolls internally.
+                return content;
               },
             ),
           ),
           ),
-        );
+        ),
+    );
   }
 }
 
@@ -904,10 +916,42 @@ class _EpgGuideTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(epgProvider).valueOrNull;
     if (data == null) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('TV guide not downloaded. Download it in Settings.'),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.calendar_month_rounded,
+                  size: 32, color: AppTheme.textMuted),
+              const SizedBox(height: 8),
+              Text('TV guide not downloaded',
+                  style: TextStyle(color: AppTheme.textSecondary)),
+              const SizedBox(height: 2),
+              Text('Download it in Settings to see programme times.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () {
+                  final wide = MediaQuery.sizeOf(context).width >= 900;
+                  if (wide) {
+                    showDialog<void>(
+                      context: context,
+                      builder: (_) => const SettingsScreen(),
+                    );
+                  } else {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Open Settings'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -928,11 +972,15 @@ class _EpgGuideTab extends ConsumerWidget {
     }
 
     final now = DateTime.now();
+    // Start from what is airing now instead of the first entry of the day.
+    // A stale guide (nothing upcoming) still shows its full list.
+    final upcoming = upcomingProgrammes(programmes, now);
+    final visible = upcoming.isEmpty ? programmes : upcoming;
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-      itemCount: programmes.length,
+      itemCount: visible.length,
       itemBuilder: (context, index) {
-        final programme = programmes[index];
+        final programme = visible[index];
         final isLive = !programme.start.isAfter(now) &&
             programme.stop.isAfter(now);
         return Container(

@@ -115,7 +115,6 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
   Timer? _hideTimer;
   Timer? _healthTimer;
   Timer? _autoSkipTimer;
-  Timer? _userGestureTimer;
   int _reconnectAttempts = 0;
   DateTime? _lastReconnectAt;
   bool _isOpening = false;
@@ -246,6 +245,18 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
       _subscriptions.add(
         player.stream.error.listen((message) {
           if (state == null) return;
+          // An autoplay block is not a dead stream: show the "tap to play"
+          // prompt and wait for a user gesture. It can arrive while the
+          // stream is still opening, so check it before the guard below.
+          if (isAutoplayBlockedError(message)) {
+            _promptUserGesture();
+            return;
+          }
+          // The browser's "media removed from the document" race is not a dead
+          // stream; ignore it and let the in-flight open() finish.
+          if (isMediaRemovalError(message)) {
+            return;
+          }
           if (_isOpening) return;
           // Bypass transient tcp/ffurl errors: they are usually not dead
           // channels. Retry once, otherwise let the health monitor decide.
@@ -304,6 +315,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
         clearError: true,
         autoSkipRemaining: null,
         clearAutoSkip: true,
+        needsUserGesture: false,
       );
     }
 
@@ -360,6 +372,7 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
         controlsVisible: true,
         autoSkipRemaining: null,
         clearAutoSkip: true,
+        needsUserGesture: false,
       );
     } catch (_) {}
 
@@ -383,6 +396,13 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     } catch (error) {
       if (state == null) return;
       final raw = error.toString();
+      if (isAutoplayBlockedError(raw)) {
+        _promptUserGesture();
+        return;
+      }
+      if (isMediaRemovalError(raw)) {
+        return;
+      }
       // Bypass transient tcp/ffurl errors with a single retry.
       if (isTransientStreamError(raw) && _reconnectAttempts < 1) {
         _reconnectAttempts++;
@@ -397,7 +417,11 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
 
   void _checkStreamHealth() {
     final current = state;
-    if (current == null || current.error != null) return;
+    if (current == null ||
+        current.error != null ||
+        current.needsUserGesture) {
+      return;
+    }
 
     final action = _health?.check(DateTime.now());
     if (action == StreamHealth.reconnect) {
@@ -449,9 +473,13 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
           buffering: false,
           controlsVisible: true,
           failedIds: failed,
+          needsUserGesture: false,
         );
       } else {
-        state = current.copyWith(failedIds: failed);
+        state = current.copyWith(
+          failedIds: failed,
+          needsUserGesture: false,
+        );
       }
     } catch (_) {
       // A watching widget may have been disposed; the state was still updated.
@@ -524,17 +552,37 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
     await current.player.playOrPause();
   }
 
+  /// Shows the "tap to play" prompt after the browser blocked autoplay.
+  void _promptUserGesture() {
+    final current = state;
+    if (current == null || current.needsUserGesture) return;
+    try {
+      state = current.copyWith(
+        needsUserGesture: true,
+        playing: false,
+        buffering: false,
+        error: null,
+        clearError: true,
+        controlsVisible: true,
+      );
+    } catch (_) {
+      // A watching widget may have been disposed; the state was still updated.
+    }
+  }
+
   /// Clears the "tap to play" prompt and starts playback from a user gesture.
   Future<void> playFromUserGesture() async {
     final current = state;
     if (current == null) return;
-    _userGestureTimer?.cancel();
-    _userGestureTimer = null;
-    try {
-      state = current.copyWith(needsUserGesture: false);
-    } catch (_) {}
+    _health?.expectPlayback(DateTime.now());
     try {
       await current.player.play();
+    } catch (_) {
+      _promptUserGesture();
+      return;
+    }
+    try {
+      state = state?.copyWith(needsUserGesture: false);
     } catch (_) {}
   }
 

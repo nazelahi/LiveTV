@@ -69,7 +69,7 @@ class AndroidDownloadBanner extends ConsumerWidget {
             icon: const Icon(Icons.download_rounded, size: 16),
             label: Text(config.buttonLabel),
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.accentSecondary,
+              backgroundColor: AppTheme.accentFill,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
