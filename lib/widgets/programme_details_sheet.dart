@@ -6,6 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
 import '../core/notifications.dart';
+import '../data/models/channel.dart';
+import '../data/models/epg.dart';
+import '../providers/player_provider.dart';
+import '../providers/playlist_providers.dart';
 import '../providers/reminder_provider.dart';
 import '../data/featured_programs.dart';
 import '../screens/epg_screen.dart';
@@ -26,13 +30,13 @@ Future<void> showProgrammeDetails(
   );
 }
 
-class _ProgrammeDetailsSheet extends StatelessWidget {
+class _ProgrammeDetailsSheet extends ConsumerWidget {
   const _ProgrammeDetailsSheet({required this.item});
 
   final FeaturedProgramme item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final programme = item.programme;
     final live = programme.isLiveAt(now);
@@ -134,7 +138,7 @@ class _ProgrammeDetailsSheet extends StatelessWidget {
                   width: double.infinity,
                   height: 44,
                   child: FilledButton.icon(
-                    onPressed: () => _watch(context),
+                    onPressed: () => _watch(context, ref),
                     icon: const Icon(Icons.play_arrow_rounded, size: 20),
                     label: Text(live ? 'Watch live' : 'Watch channel'),
                   ),
@@ -163,14 +167,17 @@ class _ProgrammeDetailsSheet extends StatelessWidget {
                       width: double.infinity,
                       height: 42,
                       child: OutlinedButton.icon(
-                        onPressed: () async {
-                          await ReminderNotifications.requestPermission();
-                          await notifier.toggle(
-                            channelId: channelId,
-                            channelName: item.channel.name,
-                            programme: item.programme,
-                          );
-                        },
+                        // Reminders are local notifications; they cannot be
+                        // scheduled from the web build, so disable the button
+                        // there instead of failing silently.
+                        onPressed: kIsWeb
+                            ? null
+                            : () => _toggleReminder(
+                                  context,
+                                  notifier,
+                                  channelId: channelId,
+                                  programme: item.programme,
+                                ),
                         icon: Icon(
                           reminded
                               ? Icons.notifications_active_rounded
@@ -190,15 +197,52 @@ class _ProgrammeDetailsSheet extends StatelessWidget {
     );
   }
 
-  void _watch(BuildContext context) {
+  void _watch(BuildContext context, WidgetRef ref) {
+    // Queue the whole playlist so next/previous work from the watch page.
+    final channels =
+        ref.read(playlistProvider).valueOrNull?.channels ?? const <Channel>[];
+    var index = channels.indexWhere((c) => c.id == item.channel.id);
+    final queue = index >= 0 ? channels : [item.channel];
+    if (index < 0) index = 0;
+    // Read before popping: the sheet's ref is unusable once it is disposed.
+    final player = ref.read(playerProvider.notifier);
+
     final navigator = Navigator.of(context);
     navigator.pop();
+    if (isWatchScreenOpen) {
+      // Switch the open watch page instead of stacking another player.
+      player.play(queue[index], queue, index);
+      return;
+    }
     navigator.push(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: 'watch'),
-        builder: (_) => WatchScreen(queue: [item.channel], initialIndex: 0),
+        builder: (_) => WatchScreen(queue: queue, initialIndex: index),
       ),
     );
+  }
+
+  /// Schedules or cancels the reminder and reports the outcome, so a denied
+  /// permission or a started programme is never a silent no-op.
+  Future<void> _toggleReminder(
+    BuildContext context,
+    ReminderNotifier notifier, {
+    required String channelId,
+    required Programme programme,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await ReminderNotifications.requestPermission();
+    final result = await notifier.toggle(
+      channelId: channelId,
+      channelName: item.channel.name,
+      programme: programme,
+    );
+    final message = result.message;
+    if (message != null && context.mounted) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   void _openGuide(BuildContext context) {

@@ -26,6 +26,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _refreshing = false;
 
   String? _latestVersion;
+
+  bool get _updateAvailable =>
+      _latestVersion != null &&
+      isNewerVersion(_latestVersion!, AppConfig.appVersion);
   String? _latestReleaseUrl;
   static const MethodChannel _updateChannel = MethodChannel('app_update');
   bool _downloadingUpdate = false;
@@ -332,7 +336,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ? 'Checking for updates…'
                         : _latestVersion == null
                             ? ((kIsWeb || !Platform.isAndroid) ? AppConfig.appVersion : '${AppConfig.appVersion}  ·  tap to check for updates')
-                            : _latestVersion == AppConfig.appVersion
+                            : !_updateAvailable
                                 ? '${AppConfig.appVersion}  ·  up to date'
                                 : '${AppConfig.appVersion}  →  $_latestVersion available',
                   ),
@@ -349,8 +353,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 value: _downloadProgress > 0 ? _downloadProgress : null,
                               ),
                             )
-                          : (_latestVersion != null &&
-                                  _latestVersion != AppConfig.appVersion)
+                          : _updateAvailable
                               ? TextButton(
                                   onPressed: _downloadAndInstallUpdate,
                                   child: const Text('Update'),
@@ -596,7 +599,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _latestReleaseUrl = info?.releaseUrl;
       _latestDownloadUrl = info?.downloadUrl;
       _latestChecksum = info?.checksum;
-      if (_latestVersion == AppConfig.appVersion) {
+      // Only offer an install for a strictly newer release ("1.0.10" vs
+      // "1.0.9", "v1.0.1" vs "1.0.1" or an older tag must not count).
+      if (info == null || !info.isNewer) {
         _latestReleaseUrl = null;
         _latestDownloadUrl = null;
       }

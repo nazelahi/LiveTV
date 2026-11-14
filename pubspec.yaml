@@ -48,7 +48,6 @@ dependencies:
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
-  flutter_volume_controller: ^2.0.2
   audio_session: ^0.2.4
   connectivity_plus: ^7.3.1
   crypto: ^3.0.6

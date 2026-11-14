@@ -172,17 +172,46 @@ class PlaylistRepository {
     }
   }
 
-  /// Downloads only when the remote version differs from the cached one.
+  /// Downloads the playlist unless the cached copy is known to be current.
   /// Returns null when the cached playlist is already up to date.
-  Future<PlaylistState?> fetchIfUpdated() async {
-    final config = await _fetchConfig();
-    if (config != null) {
-      final cachedVersion = _cachedVersion();
-      if (cachedVersion != null && config.version == cachedVersion) {
+  ///
+  /// The config version only tracks playlists uploaded to the admin site; an
+  /// external playlist (GitHub, IPTV provider) can change without a version
+  /// bump, so it is always downloaded again. [force] (a user-initiated refresh)
+  /// always downloads.
+  Future<PlaylistState?> fetchIfUpdated({bool force = false}) async {
+    if (!force) {
+      final config = await _fetchConfig();
+      if (config != null &&
+          canSkipDownload(
+            remoteVersion: config.version,
+            cachedVersion: _cachedVersion(),
+            remoteUrls: config.urls,
+            cachedUrls: _cachedUrls(),
+          )) {
         return null;
       }
     }
     return fetch();
+  }
+
+  /// Whether a download can be skipped: same version, same sources, and every
+  /// source is hosted next to the config endpoint (so its content can only
+  /// change together with the version).
+  @visibleForTesting
+  static bool canSkipDownload({
+    required int? remoteVersion,
+    required int? cachedVersion,
+    required List<String> remoteUrls,
+    required List<String>? cachedUrls,
+    String configUrl = AppConfig.configUrl,
+  }) {
+    if (remoteVersion == null || cachedVersion == null) return false;
+    if (remoteVersion != cachedVersion) return false;
+    if (cachedUrls == null || !listEquals(remoteUrls, cachedUrls)) return false;
+    final configHost = Uri.tryParse(configUrl)?.host ?? '';
+    if (configHost.isEmpty || remoteUrls.isEmpty) return false;
+    return remoteUrls.every((url) => Uri.tryParse(url)?.host == configHost);
   }
 
   Future<void> _saveCache(
@@ -204,6 +233,9 @@ class PlaylistRepository {
     await box.put(HiveStore.playlistUrlKey, jsonEncode(urls));
     if (version != null) {
       await box.put(HiveStore.playlistVersionKey, version.toString());
+    } else {
+      // Config unreachable: the stored version no longer describes this copy.
+      await box.delete(HiveStore.playlistVersionKey);
     }
   }
 
@@ -241,11 +273,16 @@ class PlaylistRepository {
   /// Merges multiple parsed playlists into one, deduplicating channels by
   /// case-insensitive `name|group` (first occurrence wins) and collapsing
   /// groups case-insensitively (first spelling kept).
+  ///
+  /// Ids are only unique within one playlist, so a later channel whose id is
+  /// already taken (same tvg-id in two sources) gets a `#N` suffix; otherwise
+  /// favourites, the player and the dead-channel filter would confuse them.
   static ParsedPlaylist mergePlaylists(List<ParsedPlaylist> playlists) {
     final channels = <Channel>[];
     final groups = <String>[];
     final seenChannels = <String>{};
     final seenGroups = <String>{};
+    final seenIds = <String>{};
 
     for (final playlist in playlists) {
       for (final group in playlist.groups) {
@@ -256,9 +293,27 @@ class PlaylistRepository {
       }
       for (final channel in playlist.channels) {
         final key = '${channel.name.toLowerCase()}|${channel.group.toLowerCase()}';
-        if (seenChannels.add(key)) {
+        if (!seenChannels.add(key)) continue;
+        if (seenIds.add(channel.id)) {
           channels.add(channel);
+          continue;
         }
+        var suffix = 2;
+        while (!seenIds.add('${channel.id}#$suffix')) {
+          suffix++;
+        }
+        channels.add(
+          Channel(
+            id: '${channel.id}#$suffix',
+            name: channel.name,
+            url: channel.url,
+            group: channel.group,
+            logo: channel.logo,
+            tvgId: channel.tvgId,
+            country: channel.country,
+            language: channel.language,
+          ),
+        );
       }
     }
 

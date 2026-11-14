@@ -79,14 +79,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Only refresh when we started from a cached snapshot; a fresh download
     // already happened during build().
     if (state == null || !state.fromCache) return;
-    await _refresh(silent: true);
+    await _refresh(silent: true, force: false);
   }
 
-  Future<void> _refresh({bool silent = false}) async {
+  Future<void> _refresh({bool silent = false, bool force = true}) async {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      await ref.read(playlistProvider.notifier).refresh();
+      await ref.read(playlistProvider.notifier).refresh(force: force);
       if (!silent && mounted) {
         final state = ref.read(playlistProvider).valueOrNull;
         final count = state?.channels.length;

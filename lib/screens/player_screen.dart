@@ -28,9 +28,8 @@ class PlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBindingObserver {
+class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _exiting = false;
-  bool _pausedByLifecycle = false;
   void Function()? _fullscreenCancel;
 
   Future<void> _exit() async {
@@ -46,7 +45,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addObserver(this);
     enterFullscreenUi();
     if (kIsWeb) {
       enterBrowserFullscreen().ignore();
@@ -76,34 +74,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
   void dispose() {
     _fullscreenCancel?.call();
     _fullscreenCancel = null;
-    WidgetsBinding.instance.removeObserver(this);
     exitFullscreenUi();
     if (kIsWeb) exitBrowserFullscreen().ignore();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (ModalRoute.of(context)?.isCurrent != true) return;
-    final session = ref.read(playerProvider);
-    if (session == null || _exiting) return;
-
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden) {
-      if (session.playing) {
-        _pausedByLifecycle = true;
-        ref.read(playerProvider.notifier).togglePlay();
-      }
-    } else if (state == AppLifecycleState.resumed) {
-      if (_pausedByLifecycle) {
-        _pausedByLifecycle = false;
-        final current = ref.read(playerProvider);
-        if (current != null && !current.playing) {
-          ref.read(playerProvider.notifier).togglePlay();
-        }
-      }
-    }
   }
 
   @override
@@ -225,22 +198,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
               ],
             ),
           ),
-          if (session.error != null && session.autoSkipRemaining != null)
-            Positioned(
-              bottom: 80,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Text(
-                  'Skipping to the next working channel in ${session.autoSkipRemaining}s',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white70,
-                  ),
-                ),
-              ),
-            ),
           if (session.needsUserGesture)
             Positioned.fill(
               child: Center(
@@ -292,7 +249,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                openUrlInNewTab(channel.url);
+                openUrlInNewTab(channel.streamUrl);
               },
               child: const Text('Open stream'),
             ),
@@ -300,7 +257,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> with WidgetsBinding
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                openUrlInNewTab('vlc://${channel.url}');
+                openUrlInNewTab('vlc://${channel.streamUrl}');
               },
               child: const Text('Open in VLC'),
             ),

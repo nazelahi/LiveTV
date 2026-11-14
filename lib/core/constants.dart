@@ -77,9 +77,6 @@ class AppConfig {
   /// A stream that stays buffering this long is treated as dead.
   static const Duration bufferTimeout = Duration(seconds: 45);
 
-  /// How long the "skipping dead channel" countdown lasts.
-  static const int autoSkipSeconds = 5;
-
   /// Long stream errors are truncated to this many characters.
   static const int maxErrorMessageLength = 300;
 

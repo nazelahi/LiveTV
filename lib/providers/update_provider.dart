@@ -45,6 +45,7 @@ final latestReleaseProvider = FutureProvider<AppUpdateInfo?>((ref) async {
 
     final version = tag.replaceFirst(RegExp(r'^[vV]'), '');
     String? downloadUrl;
+    String? checksumUrl;
     String? checksum;
     final assets = decoded['assets'];
     if (assets is List) {
@@ -53,30 +54,35 @@ final latestReleaseProvider = FutureProvider<AppUpdateInfo?>((ref) async {
         if (a is Map<String, dynamic>) {
           final name = a['name']?.toString() ?? '';
           if (name.toLowerCase().endsWith('.apk')) {
-            downloadUrl = a['browser_download_url']?.toString();
+            downloadUrl ??= a['browser_download_url']?.toString();
           }
           // Look for a sidecar checksum file.
           if (name.toLowerCase().endsWith('.sha256') ||
               name.toLowerCase() == 'sha256sums' ||
               name.toLowerCase() == 'checksums.txt') {
-            final url = a['browser_download_url']?.toString();
-            if (url != null) {
-              try {
-                final c = http.Client();
-                final r = await c.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
-                c.close();
-                if (r.statusCode == 200) {
-                  checksum = _extractChecksum(r.body, downloadUrl);
-                }
-              } catch (_) {
-                // Checksum is best-effort; never block the update check.
-              }
-            }
+            checksumUrl ??= a['browser_download_url']?.toString();
           }
         }
       }
       if (downloadUrl == null && assets.isNotEmpty && assets.first is Map) {
         downloadUrl = (assets.first as Map)['browser_download_url']?.toString();
+      }
+    }
+
+    // Fetched only after every asset was seen, so the APK name is known and
+    // the matching line is picked regardless of the order GitHub lists them.
+    if (checksumUrl != null) {
+      try {
+        final c = http.Client();
+        final r = await c
+            .get(Uri.parse(checksumUrl))
+            .timeout(const Duration(seconds: 15));
+        c.close();
+        if (r.statusCode == 200) {
+          checksum = extractChecksum(r.body, downloadUrl);
+        }
+      } catch (_) {
+        // Checksum is best-effort; never block the update check.
       }
     }
 
@@ -91,21 +97,28 @@ final latestReleaseProvider = FutureProvider<AppUpdateInfo?>((ref) async {
   }
 });
 
-/// Pulls a 64-hex-char SHA-256 digest out of a checksum file's contents.
-String? _extractChecksum(String body, String? apkUrl) {
-  final apkName = apkUrl == null ? null : Uri.parse(apkUrl).pathSegments.last;
+/// Pulls a 64-hex-char SHA-256 digest out of a checksum file's contents,
+/// preferring the line that names the APK at [apkUrl].
+String? extractChecksum(String body, String? apkUrl) {
+  final apkName = apkUrl == null
+      ? null
+      : Uri.decodeComponent(Uri.parse(apkUrl).pathSegments.last);
+  String? onlyHash;
+  var hashes = 0;
   for (final line in body.split(RegExp(r'\r?\n'))) {
     final trimmed = line.trim();
     if (trimmed.isEmpty) continue;
     // Format: "<hash>  <filename>" or "<hash> *<filename>" or bare hash.
-    final match = RegExp(r'^([0-9a-fA-F]{64})').firstMatch(trimmed);
+    final match = RegExp(r'^([0-9a-fA-F]{64})(?:\s+\*?(.+))?$').firstMatch(trimmed);
     if (match == null) continue;
     final hash = match.group(1)!.toLowerCase();
-    if (apkName == null || trimmed.contains(apkName)) {
-      return hash;
-    }
+    final fileName = match.group(2)?.trim();
+    if (apkName == null) return hash;
+    if (fileName != null && fileName.split('/').last == apkName) return hash;
+    hashes++;
+    onlyHash = hash;
   }
-  // Fall back to the first hash found.
-  final first = RegExp(r'^([0-9a-fA-F]{64})', multiLine: true).firstMatch(body);
-  return first?.group(1)?.toLowerCase();
+  // A file with a single digest (the usual .sha256 sidecar) belongs to the
+  // APK; with several, guessing could reject a valid download.
+  return hashes == 1 ? onlyHash : null;
 }

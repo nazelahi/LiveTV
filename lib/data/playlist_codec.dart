@@ -4,7 +4,8 @@ import 'models/channel.dart';
 import 'models/playlist_state.dart';
 
 /// Bump when the cached shape changes so old cache is ignored and re-parsed.
-const int _cacheVersion = 1;
+/// 2: name-based ids for channels without a tvg-id, #EXTVLCOPT headers.
+const int _cacheVersion = 2;
 
 /// Encodes a parsed playlist so the next launch can skip M3U parsing.
 String encodeParsedPlaylist(ParsedPlaylist playlist) {

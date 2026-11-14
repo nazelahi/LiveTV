@@ -11,11 +11,9 @@ import '../widgets/player_status_overlay.dart';
 import '../widgets/quality_button.dart';
 import '../widgets/player_volume_controls.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../core/app_theme.dart';
 import '../core/open_url.dart';
-import '../core/constants.dart';
 import '../data/models/channel.dart';
 import '../data/models/epg.dart';
 import '../providers/epg_providers.dart';
@@ -29,9 +27,12 @@ import '../core/fullscreen_web_stub.dart'
 import '../core/sync_url_stub.dart'
     if (dart.library.html) '../core/sync_url_web.dart';
 
-/// Tracks whether a [WatchScreen] is currently on the navigation stack, so
-/// callers can update the existing player instead of pushing a duplicate.
-bool isWatchScreenOpen = false;
+/// How many [WatchScreen]s are currently on the navigation stack, so callers
+/// can update the existing player instead of pushing a duplicate.
+int _openWatchScreens = 0;
+
+/// Whether a [WatchScreen] is currently on the navigation stack.
+bool get isWatchScreenOpen => _openWatchScreens > 0;
 
 class WatchScreen extends ConsumerStatefulWidget {
   const WatchScreen({
@@ -48,27 +49,23 @@ class WatchScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchScreenState extends ConsumerState<WatchScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin {
   List<Channel> _related = const [];
-  bool _pausedByLifecycle = false;
-  String? _initialChannelId;
-  bool _handlingWideResize = false;
-  bool? _openedWide;
+  bool _closing = false;
   late final TabController _tabController = TabController(length: 2, vsync: this);
 
   @override
   void initState() {
     super.initState();
-    isWatchScreenOpen = true;
+    _openWatchScreens++;
 
-    WidgetsBinding.instance.addObserver(this);
     lockPortrait();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final index = widget.initialIndex.clamp(0, widget.queue.length - 1);
-      _initialChannelId = widget.queue[index].id;
       try {
+        // A no-op when the caller already started this channel.
         ref.read(playerProvider.notifier).play(
               widget.queue[index],
               widget.queue,
@@ -124,93 +121,29 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
   }
 
   Future<void> _close() async {
+    if (_closing) return;
+    _closing = true;
     await ref.read(playerProvider.notifier).close();
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   void dispose() {
-    isWatchScreenOpen = false;
-    WidgetsBinding.instance.removeObserver(this);
+    _openWatchScreens--;
     _tabController.dispose();
     // Closing the watch view without an explicit "close" action (browser back,
-    // window resize, route removal) must stop playback; otherwise audio keeps
-    // playing with no visible player on web.
-    final session = ref.read(playerProvider);
-    if (session != null &&
-        (_initialChannelId == null ||
-            session.channel.id == _initialChannelId)) {
-      unawaited(ref.read(playerProvider.notifier).close());
+    // route removal) must stop playback; otherwise audio keeps playing with no
+    // visible player. The view stays on the stack across window resizes (the
+    // desktop shell has no inline player), so this is only skipped while
+    // another watch view is still open.
+    if (!isWatchScreenOpen) {
+      final session = ref.read(playerProvider);
+      if (session != null) {
+        unawaited(ref.read(playerProvider.notifier).close());
+      }
     }
     lockPortrait();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Only the route currently on top should react to app lifecycle changes;
-    // otherwise a pushed fullscreen player and the underlying screen both pause
-    // (and double-toggle) playback.
-    if (ModalRoute.of(context)?.isCurrent != true) return;
-    final session = ref.read(playerProvider);
-    if (session == null) return;
-
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden) {
-      if (session.playing) {
-        _pausedByLifecycle = true;
-        ref.read(playerProvider.notifier).togglePlay();
-      }
-      if (!kIsWeb) {
-        try {
-          WakelockPlus.disable();
-        } catch (_) {}
-      }
-    } else if (state == AppLifecycleState.resumed) {
-      if (_pausedByLifecycle) {
-        _pausedByLifecycle = false;
-        final current = ref.read(playerProvider);
-        if (current != null && !current.playing) {
-          ref.read(playerProvider.notifier).togglePlay();
-        }
-      }
-      if (!kIsWeb) {
-        try {
-          WakelockPlus.enable();
-        } catch (_) {}
-      }
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // On the web, a mobile player pushed onto the stack should hand off to the
-    // desktop shell's inline player when the viewport grows wide enough, instead
-    // of staying stuck in the mobile layout.
-    if (!kIsWeb) return;
-    final width = MediaQuery.sizeOf(context).width;
-    if (_openedWide == null) {
-      _openedWide = width >= AppConfig.desktopBreakpoint;
-      return;
-    }
-    // Only auto-pop when the player was opened on a narrow viewport and later
-    // resized to a wide one; a player intentionally opened on desktop stays.
-    if (_openedWide == true) return;
-    if (width < AppConfig.desktopBreakpoint || _handlingWideResize) return;
-    _handlingWideResize = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        _handlingWideResize = false;
-        return;
-      }
-      if (MediaQuery.sizeOf(context).width >= AppConfig.desktopBreakpoint) {
-        // Keep playback running: just pop the mobile view.
-        Navigator.of(context).pop();
-      }
-      _handlingWideResize = false;
-    });
   }
 
   @override
@@ -218,8 +151,15 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
     final session = ref.watch(playerProvider);
     final notifier = ref.read(playerProvider.notifier);
 
-    // Refresh related list whenever the channel changes.
+    // Refresh related list whenever the channel changes; leave when the
+    // player was closed from outside this screen (the desktop shell's Esc
+    // shortcut) instead of showing a spinner forever.
     ref.listen(playerProvider, (previous, next) {
+      if (previous != null && next == null && !_closing) {
+        _closing = true;
+        Navigator.of(context).pop();
+        return;
+      }
       if (next != null && (previous?.channel.id != next.channel.id)) {
         _refreshRelated();
       }
@@ -417,22 +357,6 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                         ),
                       ), // MaterialVideoControlsTheme
                       ), // MaterialDesktopVideoControlsTheme
-                      if (session.error != null &&
-                          session.autoSkipRemaining != null)
-                        Positioned(
-                          bottom: 8,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Text(
-                              'Skipping in ${session.autoSkipRemaining}s',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ),
-                        ),
                       if (session.error != null)
                         Positioned.fill(
                           child: PlayerStatusOverlay(
@@ -443,10 +367,10 @@ class _WatchScreenState extends ConsumerState<WatchScreen>
                                 ? () => notifier.zap(1)
                                 : null,
                             onOpenStream: kIsWeb
-                                ? () => openUrlInNewTab(session.channel.url)
+                                ? () => openUrlInNewTab(session.channel.streamUrl)
                                 : null,
                             onOpenVlc: kIsWeb
-                                ? () => openUrlInNewTab('vlc://${session.channel.url}')
+                                ? () => openUrlInNewTab('vlc://${session.channel.streamUrl}')
                                 : null,
                           ),
                         )

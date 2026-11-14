@@ -67,15 +67,15 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
     final updatedAt = state.updatedAt;
     if (updatedAt == null ||
         DateTime.now().difference(updatedAt) > AppConfig.staleAfter) {
-      await _refresh(silent: true);
+      await _refresh(silent: true, force: false);
     }
   }
 
-  Future<void> _refresh({bool silent = false}) async {
+  Future<void> _refresh({bool silent = false, bool force = true}) async {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      await ref.read(playlistProvider.notifier).refresh();
+      await ref.read(playlistProvider.notifier).refresh(force: force);
       if (!silent && mounted) {
         final count = ref.read(playlistProvider).valueOrNull?.channels.length;
         _toast(count == null
@@ -105,24 +105,22 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
   void _playChannel(List<Channel> queue, int index) {
     if (queue.isEmpty) return;
     ref.read(playerProvider.notifier).play(queue[index], queue, index);
-    // On web, open a dedicated YouTube-style watch page instead of the
-    // inline right-hand panel.
-    if (kIsWeb) {
-      if (isWatchScreenOpen) {
-        // Update the already-open watch page instead of stacking another.
-        return;
-      }
-      if (!_openingWatch) {
-        _openingWatch = true;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            settings: const RouteSettings(name: 'watch'),
-            builder: (_) => WatchScreen(queue: queue, initialIndex: index),
-          ),
-        ).then((_) {
-          _openingWatch = false;
-        });
-      }
+    // Open a dedicated YouTube-style watch page; the shell has no inline
+    // player panel, on web or native.
+    if (isWatchScreenOpen) {
+      // Update the already-open watch page instead of stacking another.
+      return;
+    }
+    if (!_openingWatch) {
+      _openingWatch = true;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'watch'),
+          builder: (_) => WatchScreen(queue: queue, initialIndex: index),
+        ),
+      ).then((_) {
+        _openingWatch = false;
+      });
     }
   }
 

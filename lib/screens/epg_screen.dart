@@ -481,22 +481,30 @@ class EpgChannelScreen extends StatelessWidget {
                                 notifier.keyFor(channelId, programme.start),
                               );
                           return TextButton.icon(
-                            onPressed: () async {
-                              await ReminderNotifications.requestPermission();
-                              try {
-                                await notifier.toggle(
-                                  channelId: channelId,
-                                  channelName: title,
-                                  programme: programme,
-                                );
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Reminder failed: $e')),
-                                  );
-                                }
-                              }
-                            },
+                            // Local notifications cannot be scheduled from the
+                            // web build; disable instead of failing silently.
+                            onPressed: kIsWeb
+                                ? null
+                                : () async {
+                                    if (!context.mounted) return;
+                                    final messenger =
+                                        ScaffoldMessenger.of(context);
+                                    await ReminderNotifications
+                                        .requestPermission();
+                                    final result = await notifier.toggle(
+                                      channelId: channelId,
+                                      channelName: title,
+                                      programme: programme,
+                                    );
+                                    final message = result.message;
+                                    if (message != null && context.mounted) {
+                                      messenger
+                                        ..hideCurrentSnackBar()
+                                        ..showSnackBar(SnackBar(
+                                          content: Text(message),
+                                        ));
+                                    }
+                                  },
                             icon: Icon(
                               reminded
                                   ? Icons.notifications_active_rounded

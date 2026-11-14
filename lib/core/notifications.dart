@@ -59,23 +59,22 @@ class ReminderNotifications {
     return true;
   }
 
-  /// Schedules a reminder [lead] before [start]. Returns the notification id.
-  static Future<int> schedule({
+  /// Schedules a reminder [lead] before [start], or at [start] when that is
+  /// too close. Returns false when nothing was scheduled (on web, or when the
+  /// programme has already started); throws if the OS refuses.
+  static Future<bool> schedule({
     required int id,
     required String title,
     required String body,
     required DateTime start,
     Duration lead = const Duration(minutes: 5),
   }) async {
-    if (kIsWeb) return id;
+    if (kIsWeb) return false;
     await init();
+    final now = DateTime.now();
     final when = start.subtract(lead);
-    if (!when.isAfter(DateTime.now())) {
-      // Too late to remind ahead of time; fire at start instead.
-      if (!start.isAfter(DateTime.now())) return id;
-    }
-    final scheduled = when.isAfter(DateTime.now()) ? when : start;
-    if (!scheduled.isAfter(DateTime.now())) return id;
+    final scheduled = when.isAfter(now) ? when : start;
+    if (!scheduled.isAfter(now)) return false;
 
     final tzWhen = tz.TZDateTime.from(scheduled, tz.local);
 
@@ -103,7 +102,7 @@ class ReminderNotifications {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
-    return id;
+    return true;
   }
 
   static Future<void> cancel(int id) async {
@@ -113,7 +112,16 @@ class ReminderNotifications {
   }
 
   /// Stable id for a programme reminder.
+  ///
+  /// Must be the same on every launch so a reminder can still be cancelled
+  /// after a restart, which rules out [Object.hash] (seeded per run). This is
+  /// a 31-bit FNV-1a hash.
   static int idFor(String channelId, DateTime start) {
-    return Object.hash(channelId, start.millisecondsSinceEpoch) & 0x7fffffff;
+    var hash = 0x811c9dc5;
+    for (final unit in '$channelId|${start.millisecondsSinceEpoch}'.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash & 0x7fffffff;
   }
 }

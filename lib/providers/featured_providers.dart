@@ -19,9 +19,11 @@ final featuredProgramsProvider = Provider<List<FeaturedProgramme>>((ref) {
     epg: epg,
     channels: playlist.channels,
     now: DateTime.now(),
-  ).toList();
-  // Vary the featured lineup on every launch so the rail does not always show
-  // the exact same programmes.
-  result.shuffle();
-  return result;
+  );
+  // Vary the featured lineup on every launch without discarding the score
+  // ranking: only the top pool is shuffled among itself, so the best
+  // programmes still lead the rail and the tail stays ranked.
+  const poolSize = 20;
+  final pool = result.take(poolSize).toList()..shuffle();
+  return <FeaturedProgramme>[...pool, ...result.skip(poolSize)];
 });

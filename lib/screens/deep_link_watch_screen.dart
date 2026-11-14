@@ -53,7 +53,7 @@ class _DeepLinkWatchScreenState extends ConsumerState<DeepLinkWatchScreen> {
     final playlist = ref.watch(playlistProvider);
     final data = playlist.valueOrNull;
     if (_queue == null && data != null) {
-      final idx = data.channels.indexWhere((c) => c.id == widget.channelId);
+      final idx = indexOfChannelId(data.channels, widget.channelId);
       if (idx >= 0) {
         _queue = data.channels;
         _index = idx;
@@ -83,7 +83,7 @@ class _DeepLinkWatchScreenState extends ConsumerState<DeepLinkWatchScreen> {
             textAlign: TextAlign.center,
           ),
           data: (d) {
-            final found = d.channels.any((c) => c.id == widget.channelId);
+            final found = indexOfChannelId(d.channels, widget.channelId) >= 0;
             return Text(
               found ? 'Loading…' : 'Channel not found: ${widget.channelId}',
               textAlign: TextAlign.center,

@@ -10,6 +10,7 @@ import '../core/sync_url_stub.dart'
     if (dart.library.html) '../core/sync_url_web.dart';
 import '../core/hash_nav_stub.dart'
     if (dart.library.html) '../core/hash_nav_web.dart';
+import '../data/models/channel.dart';
 import '../screens/deep_link_watch_screen.dart';
 import '../providers/deep_link_provider.dart';
 import '../providers/player_provider.dart';
@@ -105,14 +106,13 @@ class _RootScreenState extends ConsumerState<RootScreen> {
       }
       try {
         if (currentWide) {
-          // Mobile -> desktop: the pushed WatchScreen (if any) pops itself when
-          // it detects the wide viewport, so there is nothing to do here beyond
-          // clearing our tracked route.
+          // Mobile -> desktop: the pushed WatchScreen (if any) stays on the
+          // stack and adapts to the wide layout.
           _watchRoute = null;
         } else {
           // Desktop -> mobile: open the mobile player for the active session,
           // unless one is already on the stack.
-          if (_watchRoute?.isActive == true) {
+          if (isWatchScreenOpen || _watchRoute?.isActive == true) {
             _handlingResize = false;
             return;
           }
@@ -148,7 +148,9 @@ class _RootScreenState extends ConsumerState<RootScreen> {
 
     final navigator = Navigator.of(context);
     if (id != null) {
-      if (_watchRoute?.isActive == true) return;
+      // An open watch view rewrites the hash itself (syncPlaybackUrl) when the
+      // channel changes; that must not stack another player on top of it.
+      if (isWatchScreenOpen || _watchRoute?.isActive == true) return;
       final route = MaterialPageRoute<void>(
         settings: RouteSettings(name: '/#/watch/${Uri.encodeComponent(id)}'),
         builder: (_) => DeepLinkWatchScreen(channelId: id),
@@ -186,40 +188,18 @@ class _RootScreenState extends ConsumerState<RootScreen> {
     for (int i = 0; i < 50; i++) {
       final state = ref.read(playlistProvider).valueOrNull;
       if (state != null) {
-        final idx = state.channels.indexWhere((c) => c.id == id);
+        final idx = indexOfChannelId(state.channels, id);
         if (idx >= 0 && mounted) {
-          if (kIsWeb) {
-            ref.read(playerProvider.notifier).play(
-                  state.channels[idx],
-                  state.channels,
-                  idx,
-                );
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                settings: const RouteSettings(name: 'watch'),
-                builder: (_) => WatchScreen(
-                  queue: state.channels,
-                  initialIndex: idx,
-                ),
+          // Every layout plays inside a WatchScreen; it starts the channel.
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: 'watch'),
+              builder: (_) => WatchScreen(
+                queue: state.channels,
+                initialIndex: idx,
               ),
-            );
-          } else if (MediaQuery.sizeOf(context).width >=
-              AppConfig.desktopBreakpoint) {
-            ref.read(playerProvider.notifier).play(
-                  state.channels[idx],
-                  state.channels,
-                  idx,
-                );
-          } else {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => WatchScreen(
-                  queue: state.channels,
-                  initialIndex: idx,
-                ),
-              ),
-            );
-          }
+            ),
+          );
         }
         return;
       }

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants.dart';
 import '../data/hive_store.dart';
 import '../data/playlist_repository.dart';
+import '../data/models/channel.dart';
 import '../data/models/playlist_state.dart';
+import 'channel_probe_provider.dart';
 import 'dead_channels_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -150,6 +154,33 @@ class FavoritesNotifier extends StateNotifier<Set<String>> {
     }
     if (changed) state = next;
   }
+
+  /// Re-keys favourites saved under the old URL-based channel ids (used for
+  /// channels without a tvg-id) to the current ids of [channels].
+  void migrateLegacyIds(List<Channel> channels) {
+    if (state.isEmpty || channels.isEmpty) return;
+    final ids = {for (final channel in channels) channel.id};
+    final stale = state.where((id) => !ids.contains(id)).toSet();
+    if (stale.isEmpty) return;
+
+    final next = {...state};
+    var changed = false;
+    for (final channel in channels) {
+      // The old id was the raw URL line, which now may carry extra
+      // #EXTVLCOPT headers after a `|`.
+      for (final legacy in {channel.url, channel.streamUrl}) {
+        if (!stale.remove(legacy)) continue;
+        next.remove(legacy);
+        HiveStore.favorites.delete(legacy).ignore();
+        if (next.add(channel.id)) {
+          HiveStore.favorites.put(channel.id, '1').ignore();
+        }
+        changed = true;
+      }
+      if (stale.isEmpty) break;
+    }
+    if (changed) state = next;
+  }
 }
 
 final favoritesProvider =
@@ -171,23 +202,39 @@ class PlaylistNotifier extends AsyncNotifier<PlaylistState> {
   @override
   Future<PlaylistState> build() async {
     final repository = ref.read(playlistRepositoryProvider);
-    final cached = repository.readCacheSync();
-    if (cached != null) return cached;
-    return repository.fetch();
+    final playlist = repository.readCacheSync() ?? await repository.fetch();
+    // Deferred: a provider may not modify another one while it is building.
+    scheduleMicrotask(() => _migrateFavorites(playlist));
+    return playlist;
+  }
+
+  void _migrateFavorites(PlaylistState playlist) {
+    ref.read(favoritesProvider.notifier).migrateLegacyIds(playlist.channels);
   }
 
   /// Downloads a fresh playlist. Keeps showing the old one if the download
   /// fails, and rethrows so the UI can explain what happened.
-  Future<void> refresh() async {
+  ///
+  /// With [force] false the download is skipped when the admin config says
+  /// the playlist has not changed since the cached copy.
+  Future<void> refresh({bool force = true}) async {
     final previous = state.valueOrNull;
     // A refresh is the retry point for previously broken channels.
     ref.read(deadChannelsProvider.notifier).clear();
     try {
-      final fresh = await ref.read(playlistRepositoryProvider).fetchIfUpdated();
+      final fresh = await ref
+          .read(playlistRepositoryProvider)
+          .fetchIfUpdated(force: force);
       if (fresh != null) {
+        _migrateFavorites(fresh);
         state = AsyncData(fresh);
       } else if (previous != null) {
         state = AsyncData(previous);
+        // The channel list is unchanged, so the screens will not start a new
+        // probe on their own; re-check the channels that were just cleared.
+        unawaited(ref
+            .read(channelProbeControllerProvider)
+            .run(previous.channels, restart: true));
       }
     } catch (error, stackTrace) {
       if (previous != null) {
@@ -201,6 +248,7 @@ class PlaylistNotifier extends AsyncNotifier<PlaylistState> {
 
   Future<void> clearCache() async {
     await ref.read(playlistRepositoryProvider).clearCache();
+    ref.read(deadChannelsProvider.notifier).clear();
   }
 }
 

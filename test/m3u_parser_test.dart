@@ -25,7 +25,7 @@ http://example.com/two.ts
       expect(parsed.groups, ['Bangladesh', 'Sports']);
     });
 
-    test('falls back to the URL for ids and keeps duplicates unique', () {
+    test('derives ids from name and group without a tvg-id and keeps duplicates unique', () {
       const raw = '''
 #EXTINF:-1 group-title="News",Alpha
 http://example.com/a.m3u8
@@ -38,10 +38,19 @@ http://example.com/c.m3u8
       final parsed = parseM3u(raw);
       final ids = parsed.channels.map((channel) => channel.id).toList();
 
-      expect(ids.first, 'http://example.com/a.m3u8');
+      expect(ids.first, 'news/alpha');
       expect(ids[1], 'same.id');
       expect(ids[2], 'same.id#2');
       expect(ids.toSet(), hasLength(3));
+    });
+
+    test('unwraps a fully quoted display name containing a comma', () {
+      const raw = '''
+#EXTINF:-1 group-title="News", "Alpha, Beta"
+http://example.com/q.m3u8
+''';
+      final parsed = parseM3u(raw);
+      expect(parsed.channels.single.name, 'Alpha, Beta');
     });
 
     test('applies EXTGRP to channels without a group title', () {
