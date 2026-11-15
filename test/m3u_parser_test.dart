@@ -17,7 +17,7 @@ http://example.com/two.ts
       expect(parsed.channels, hasLength(2));
       expect(parsed.channels.first.name, 'One TV');
       expect(parsed.channels.first.group, 'Bangladesh');
-      expect(parsed.channels.first.logo, 'http://example.com/one.png');
+      expect(parsed.channels.first.logo, 'https://example.com/one.png');
       expect(parsed.channels.first.id, 'one.bd');
       expect(parsed.channels[1].name, 'Two, Live');
       expect(parsed.channels[1].group, 'Sports');

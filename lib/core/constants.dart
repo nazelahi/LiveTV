@@ -54,10 +54,15 @@ class AppConfig {
 
   static const String adultGroup = 'Adult';
 
-  /// Public HTTPS proxy used to relay plain http:// streams on the web build.
-  /// Empty disables proxying (falls back to the "Open stream" prompt).
-  /// The proxy must accept the target URL appended to this base (URL-encoded).
-  static const String webStreamProxyBase = 'https://corsproxy.io/?';
+  /// HTTPS relay used on the web build for plain http:// streams and other
+  /// CORS-hostile URLs. Empty disables proxying (falls back to the "Open
+  /// stream" prompt). The target URL is appended URL-encoded.
+  ///
+  /// Self-hosted on the admin site (see admin/netlify/functions/proxy.js);
+  /// the previous public corsproxy.io endpoint stopped allowing anonymous
+  /// requests and now returns HTTP 403.
+  static const String webStreamProxyBase =
+      'https://liveiptvbd.netlify.app/.netlify/functions/proxy?url=';
 
   /// A cached playlist older than this is refreshed in the background.
   static const Duration staleAfter = Duration(minutes: 15);

@@ -71,19 +71,12 @@ final latestReleaseProvider = FutureProvider<AppUpdateInfo?>((ref) async {
 
     // Fetched only after every asset was seen, so the APK name is known and
     // the matching line is picked regardless of the order GitHub lists them.
+    //
+    // github.com release downloads send no CORS headers, so the direct fetch
+    // is always blocked from the web build; there the request is relayed
+    // through the app's own proxy (see AppConfig.webStreamProxyBase).
     if (checksumUrl != null) {
-      try {
-        final c = http.Client();
-        final r = await c
-            .get(Uri.parse(checksumUrl))
-            .timeout(const Duration(seconds: 15));
-        c.close();
-        if (r.statusCode == 200) {
-          checksum = extractChecksum(r.body, downloadUrl);
-        }
-      } catch (_) {
-        // Checksum is best-effort; never block the update check.
-      }
+      checksum = await _fetchChecksum(checksumUrl, downloadUrl);
     }
 
     return AppUpdateInfo(
@@ -96,6 +89,31 @@ final latestReleaseProvider = FutureProvider<AppUpdateInfo?>((ref) async {
     return null;
   }
 });
+
+/// Fetches a release checksum, retrying through the configured relay on the
+/// web build, where github.com release downloads are CORS-blocked.
+Future<String?> _fetchChecksum(String checksumUrl, String? downloadUrl) async {
+  final urls = <String>[checksumUrl];
+  if (AppConfig.webStreamProxyBase.isNotEmpty) {
+    urls.add(
+      '${AppConfig.webStreamProxyBase}${Uri.encodeComponent(checksumUrl)}',
+    );
+  }
+  for (final url in urls) {
+    try {
+      final c = http.Client();
+      final r = await c.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
+      c.close();
+      if (r.statusCode == 200) {
+        final checksum = extractChecksum(r.body, downloadUrl);
+        if (checksum != null) return checksum;
+      }
+    } catch (_) {
+      // Checksum is best-effort; never block the update check.
+    }
+  }
+  return null;
+}
 
 /// Pulls a 64-hex-char SHA-256 digest out of a checksum file's contents,
 /// preferring the line that names the APK at [apkUrl].

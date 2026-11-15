@@ -1,17 +1,9 @@
-const { getStore } = require("@netlify/blobs");
-
-const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
-const token = process.env.NETLIFY_AUTH_TOKEN || process.env.NETLIFY_TOKEN || process.env.AUTH_TOKEN;
-
-function getLivetvStore() {
-  if (siteID && token) return getStore({ name: "livetv", siteID, token });
-  return getStore("livetv");
-}
+const { getLivetvStore, adminGate, CORS_HEADERS } = require("./_lib");
 
 function json(statusCode, payload) {
   return {
     statusCode,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
     body: JSON.stringify(payload),
   };
 }
@@ -85,16 +77,8 @@ async function fetchPlaylistStats(url) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method not allowed" };
-  }
-  const adminToken = String(process.env.ADMIN_TOKEN || "").trim();
-  if (!adminToken) {
-    return { statusCode: 500, body: "ADMIN_TOKEN is not configured on the server" };
-  }
-  if (String(event.headers["x-admin-token"] || "").trim() !== adminToken) {
-    return { statusCode: 401, body: "Unauthorized" };
-  }
+  const gate = adminGate(event, "POST");
+  if (gate) return gate;
 
   const rawBody = event.body || "";
   const bodyBytes = Buffer.byteLength(rawBody, "utf8");
@@ -175,7 +159,9 @@ exports.handler = async (event) => {
         const v = next.androidDownloadEnabled.trim().toLowerCase();
         next.androidDownloadEnabled = v === "true";
       }
-      next.version = version + 1;
+      // Do not bump the playlist version: banner fields reach clients through
+      // the config endpoint on every app start, and a bump would force every
+      // installed app to re-download the whole multi-megabyte playlist.
       next.updatedAt = new Date().toISOString();
       await store.setJSON("config", next);
       return json(200, next);
@@ -345,7 +331,18 @@ exports.handler = async (event) => {
       channelCount: stats.channels,
       groupCount: stats.groups,
     });
-    await store.setJSON("history", meta.slice(0, 10));
+    const keptMeta = meta.slice(0, 10);
+    await store.setJSON("history", keptMeta);
+    // Each saved version gets its own blob; drop the ones that fell out of
+    // the kept window so storage does not grow forever.
+    const keptVersions = new Set(keptMeta.map((entry) => entry.version));
+    await Promise.all(
+      list
+        .filter((entry) => entry && !keptVersions.has(entry.version))
+        .map((entry) =>
+          store.delete(`history/${entry.version}`).catch(() => {})
+        ),
+    );
 
     return json(200, next);
   } catch (err) {

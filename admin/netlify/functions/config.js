@@ -1,18 +1,4 @@
-const { getStore } = require("@netlify/blobs");
-
-const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
-const token = process.env.NETLIFY_AUTH_TOKEN || process.env.NETLIFY_TOKEN || process.env.AUTH_TOKEN;
-
-function getLivetvStore() {
-  if (siteID && token) return getStore({ name: "livetv", siteID, token });
-  return getStore("livetv");
-}
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+const { getLivetvStore, CORS_HEADERS, siteID, token } = require("./_lib");
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {

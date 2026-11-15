@@ -3,6 +3,14 @@ import 'models/playlist_state.dart';
 
 final RegExp _attributePattern = RegExp(r'([A-Za-z0-9_-]+)="([^"]*)"');
 
+/// Logo URLs are often published as http://. Browsers upgrade them to
+/// https:// anyway (mixed-content rule), so do it up front for consistency
+/// across platforms.
+String _upgradeLogoUrl(String url) {
+  if (url.startsWith('http://')) return 'https://${url.substring(7)}';
+  return url;
+}
+
 /// Parses an Extended M3U playlist into channels.
 ///
 /// This is deliberately dependency-free and top-level so it can run inside
@@ -91,7 +99,7 @@ ParsedPlaylist parseM3u(String content) {
       id = '$id#$suffix';
     }
 
-    final logo = (attributes['tvg-logo'] ?? '').trim();
+    final logo = _upgradeLogoUrl((attributes['tvg-logo'] ?? '').trim());
 
     channels.add(
       Channel(

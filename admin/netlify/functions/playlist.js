@@ -1,14 +1,17 @@
-const { getStore } = require("@netlify/blobs");
+const { getLivetvStore } = require("./_lib");
 
-const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
-const token = process.env.NETLIFY_AUTH_TOKEN || process.env.NETLIFY_TOKEN || process.env.AUTH_TOKEN;
-
-function getLivetvStore() {
-  if (siteID && token) return getStore({ name: "livetv", siteID, token });
-  return getStore("livetv");
-}
-
-exports.handler = async () => {
+exports.handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+      body: "",
+    };
+  }
   try {
     const store = getLivetvStore();
     const text = await store.get("playlist");
@@ -17,7 +20,11 @@ exports.handler = async () => {
     }
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/x-mpegURL", "Cache-Control": "no-cache" },
+      headers: {
+        "Content-Type": "application/x-mpegURL",
+        "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*",
+      },
       body: text,
     };
   } catch (err) {

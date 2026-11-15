@@ -434,6 +434,16 @@
       try {
         const cfg = await fetch("/.netlify/functions/config").then(r => r.json());
         const urls = Array.isArray(cfg.playlistUrls) ? cfg.playlistUrls : [cfg.playlistUrl];
+        // Prefill the sources box with the URLs the app serves right now, so
+        // clicking "Save sources" without editing cannot silently switch the
+        // app back to the built-in default playlist.
+        const externalUrlBox = document.getElementById("externalUrl");
+        const currentSources = (urls || []).filter(Boolean).join("\n");
+        if (currentSources &&
+            (externalUrlBox.value.trim() === "" ||
+             externalUrlBox.value.trim() === DEFAULT_PLAYLIST_URL)) {
+          externalUrlBox.value = currentSources;
+        }
         document.getElementById("current").innerHTML =
           "<div class='info-list'>" +
           "<div class='row'><span>Version</span><strong>" + cfg.version + "</strong></div>" +

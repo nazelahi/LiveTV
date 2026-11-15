@@ -44,6 +44,8 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <style>
+    /* Match the app theme so there is no white flash before Flutter renders. */
+    html, body { background: #050506; }
     #boot-loading {
       position: fixed;
       inset: 0;
@@ -80,12 +82,12 @@
         if (el) { el.remove(); removed = true; }
       }
       // Poll for Flutter's render and remove the overlay as soon as it appears.
+      // No fixed timeout: dropping the overlay early used to leave a blank
+      // page while main.dart.js was still downloading on slow connections.
       var poll = setInterval(function () {
         if (document.querySelector('flutter-view, canvas')) removeBootLoading();
         if (removed) clearInterval(poll);
       }, 100);
-      // Safety net: always remove after 4s.
-      setTimeout(function () { removeBootLoading(); clearInterval(poll); }, 4000);
     })();
   </script>
   <script src="flutter_bootstrap.js" async></script>

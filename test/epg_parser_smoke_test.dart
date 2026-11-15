@@ -23,7 +23,7 @@ void main() {
     final programmes = data.programmesFor('c1');
     expect(programmes.first.title, 'Show A');
     expect(programmes.first.description, 'Desc A');
-    expect(programmes.first.icon, 'http://example.com/a.png');
+    expect(programmes.first.icon, 'https://example.com/a.png');
   });
 
   test('parses categories, new and premiere flags', () {

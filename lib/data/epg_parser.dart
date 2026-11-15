@@ -46,7 +46,7 @@ EpgData parseEpg(String content) {
         activeTag = event.name;
         textBuffer.clear();
       } else if (inProgramme && event.name == 'icon') {
-        icon ??= _attr(event, 'src');
+        icon ??= _upgradeIconUrl(_attr(event, 'src'));
       } else if (inProgramme && event.name == 'new') {
         isNew = true;
       } else if (inProgramme && event.name == 'premiere') {
@@ -120,6 +120,16 @@ String? _attr(XmlStartElementEvent event, String name) {
     if (attr.name == name) return attr.value;
   }
   return null;
+}
+
+/// EPG sources frequently publish icon URLs as http://. Browsers upgrade
+/// them to https:// anyway (mixed-content rule), so do it up front: it keeps
+/// the console clean and makes native and web builds behave the same. Hosts
+/// that do not answer on https lose the icon on both platforms either way.
+String? _upgradeIconUrl(String? url) {
+  if (url == null) return null;
+  if (url.startsWith('http://')) return 'https://${url.substring(7)}';
+  return url;
 }
 
 DateTime? _parseTime(String? raw) {
