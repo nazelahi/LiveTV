@@ -28,13 +28,18 @@ class PlayerStatusOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final failed = error != null;
+    // FittedBox(scaleDown) keeps the card centred and whole even when the
+    // 16:9 video stage is too short for the full content (small phones in
+    // landscape-cropped stages), instead of overflowing.
     return Semantics(
       liveRegion: true,
       container: true,
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 340),
-          child: Container(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 340),
+            child: Container(
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             decoration: BoxDecoration(
@@ -128,6 +133,7 @@ class PlayerStatusOverlay extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

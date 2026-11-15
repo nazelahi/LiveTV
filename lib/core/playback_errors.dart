@@ -69,6 +69,10 @@ String friendlyPlaybackError(String raw) {
   if (lower.contains('failed to open') || lower.contains('unable to open')) {
     return 'Could not open this stream.';
   }
+  if (lower.contains('force-seekable')) {
+    return 'This stream refuses to start in standard mode. '
+        'Enable Compatibility mode in Settings and reload.';
+  }
   if (lower.contains('unsupported') || lower.contains('codec')) {
     return 'This stream uses an unsupported format.';
   }

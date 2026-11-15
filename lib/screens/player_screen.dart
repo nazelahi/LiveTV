@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,6 +34,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _exiting = false;
   void Function()? _fullscreenCancel;
 
+  /// Visibility of the top bar: shown on any interaction over the video and
+  /// auto-hidden after a short idle delay while playing (like media_kit's
+  /// own controls, which the bar mirrors). Paused/error states keep it up.
+  bool _barVisible = true;
+  Timer? _barHideTimer;
+
   Future<void> _exit() async {
     if (_exiting) return;
     _exiting = true;
@@ -41,11 +49,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     Navigator.of(context).pop();
   }
 
+  /// Shows the top bar and rearms the auto-hide timer.
+  void _showBar() {
+    _barHideTimer?.cancel();
+    if (!_barVisible && mounted) setState(() => _barVisible = true);
+    _scheduleBarHide();
+  }
+
+  void _scheduleBarHide() {
+    _barHideTimer?.cancel();
+    _barHideTimer = Timer(const Duration(seconds: 4), () {
+      final session = mounted ? ref.read(playerProvider) : null;
+      // Paused, failed or gesture-gated playback keeps the bar visible.
+      if (session != null && session.playing && mounted && _barVisible) {
+        setState(() => _barVisible = false);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
 
     enterFullscreenUi();
+    _scheduleBarHide();
     if (kIsWeb) {
       enterBrowserFullscreen().ignore();
       _fullscreenCancel = listenFullscreenChange(() {
@@ -72,6 +99,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   void dispose() {
+    _barHideTimer?.cancel();
     _fullscreenCancel?.call();
     _fullscreenCancel = null;
     exitFullscreenUi();
@@ -82,6 +110,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(playerProvider);
+
+    // Keep the bar in sync with playback: a resume hides it after the idle
+    // delay, a pause or error pins it visible.
+    ref.listen(playerProvider, (previous, next) {
+      if (next == null) return;
+      final resumed = next.playing && !(previous?.playing ?? false);
+      final pinned = next.error != null || next.needsUserGesture;
+      if (resumed || pinned) _showBar();
+    });
+
     if (session == null) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -161,38 +199,59 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               initialVolume: (session.volume / 100).clamp(0.0, 1.0),
             ),
             fullscreen: kDefaultMaterialVideoControlsThemeDataFullscreen,
-            child: Video(
-              controller: session.controller,
-              controls: AdaptiveVideoControls,
-              fit: BoxFit.cover,
-              wakelock: false,
-              pauseUponEnteringBackgroundMode: false,
-              resumeUponEnteringForegroundMode: false,
+            child: Listener(
+              // Translucent: pointer events still reach the video's own
+              // controls; every interaction shows the top bar and rearms
+              // its auto-hide timer.
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (_) => _showBar(),
+              child: Video(
+                controller: session.controller,
+                controls: AdaptiveVideoControls,
+                fit: BoxFit.cover,
+                wakelock: false,
+                pauseUponEnteringBackgroundMode: false,
+                resumeUponEnteringForegroundMode: false,
+              ),
             ),
           ), // MaterialVideoControlsTheme
           ), // MaterialDesktopVideoControlsTheme
           SafeArea(
             child: Column(
               children: [
-                _TopBar(
-                  channel: channel,
-                  player: session.player,
-                  isFavorite: ref
-                      .watch(favoritesProvider)
-                      .contains(channel.id),
-                  onBack: () => _exit(),
-                  onFavorite: () => ref
-                      .read(favoritesProvider.notifier)
-                      .toggle(channel.id),
-                  onRetry: () => ref.read(playerProvider.notifier).retry(),
-                  error: session.error,
-                  onError: session.error == null
-                      ? null
-                      : () => _showErrorDialog(
-                            channel,
-                            session.error!,
-                            session.queue.length > 1,
-                          ),
+                AnimatedSlide(
+                  offset: _barVisible
+                      ? Offset.zero
+                      : const Offset(0, -1.3),
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  child: AnimatedOpacity(
+                    opacity: _barVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 220),
+                    child: IgnorePointer(
+                      ignoring: !_barVisible,
+                      child: _TopBar(
+                        channel: channel,
+                        player: session.player,
+                        isFavorite: ref
+                            .watch(favoritesProvider)
+                            .contains(channel.id),
+                        onBack: () => _exit(),
+                        onFavorite: () => ref
+                            .read(favoritesProvider.notifier)
+                            .toggle(channel.id),
+                        onRetry: () => ref.read(playerProvider.notifier).retry(),
+                        error: session.error,
+                        onError: session.error == null
+                            ? null
+                            : () => _showErrorDialog(
+                                  channel,
+                                  session.error!,
+                                  session.queue.length > 1,
+                                ),
+                      ),
+                    ),
+                  ),
                 ),
                 const Spacer(),
               ],
