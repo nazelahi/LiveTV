@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Web: switching to another browser tab no longer pauses playback; the stream
+  keeps playing in the background tab. The lifecycle pause-on-hide behaviour is
+  kept on mobile and desktop builds.
+
+- Playlists now sync automatically while the app is open: the admin config is
+  re-checked on a timer and whenever the app resumes from the background (or a
+  web tab becomes visible again), so a playlist published in the admin panel
+  appears without a manual refresh from Settings. Unchanged playlists cause no
+  state churn or channel re-probes.
+
 - Web: replaced the dead corsproxy.io relay (now returns 403 for anonymous
   requests) with a self-hosted proxy function on the admin Netlify site
   (`admin/netlify/functions/proxy.js`); plain http:// streams and the GitHub

@@ -217,18 +217,27 @@ class PlaylistNotifier extends AsyncNotifier<PlaylistState> {
   ///
   /// With [force] false the download is skipped when the admin config says
   /// the playlist has not changed since the cached copy.
-  Future<void> refresh({bool force = true}) async {
+  ///
+  /// Background checks ([background] true, used by the periodic and on-resume
+  /// auto-sync) stay silent when the playlist is unchanged: no state update,
+  /// no probe restart, so an idle app is not disturbed.
+  Future<void> refresh({bool force = true, bool background = false}) async {
     final previous = state.valueOrNull;
-    // A refresh is the retry point for previously broken channels.
-    ref.read(deadChannelsProvider.notifier).clear();
+    if (!background) {
+      // A user- or startup-initiated refresh is the retry point for previously
+      // broken channels.
+      ref.read(deadChannelsProvider.notifier).clear();
+    }
     try {
       final fresh = await ref
           .read(playlistRepositoryProvider)
           .fetchIfUpdated(force: force);
       if (fresh != null) {
+        // A new playlist is also a retry point for broken channels.
+        ref.read(deadChannelsProvider.notifier).clear();
         _migrateFavorites(fresh);
         state = AsyncData(fresh);
-      } else if (previous != null) {
+      } else if (!background && previous != null) {
         state = AsyncData(previous);
         // The channel list is unchanged, so the screens will not start a new
         // probe on their own; re-check the channels that were just cleared.

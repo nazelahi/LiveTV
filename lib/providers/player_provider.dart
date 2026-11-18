@@ -181,7 +181,13 @@ class PlayerNotifier extends StateNotifier<PlayerSession?> {
   /// Only hidden/paused mean the player is no longer visible. `inactive` also
   /// fires on a web window blur, the iOS control centre or an unfocused
   /// split-screen window, where playback should continue.
+  ///
+  /// Not installed on web: hiding a browser tab (or minimising the window)
+  /// reports `hidden`, but a background tab must keep playing audio. Browsers
+  /// allow that, so the stream simply runs on while the user is in another
+  /// tab and is still there when they come back.
   void _initLifecycle() {
+    if (kIsWeb) return;
     try {
       _lifecycleListener = AppLifecycleListener(
         onStateChange: (lifecycle) {
